@@ -1,0 +1,18 @@
+{
+  "name": "ShopHub",
+  "short_name": "ShopHub",
+  "description": "Online shopping for electronics, fashion, home essentials & more.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0891b2",
+  "icons": [
+    {
+      "src": "https://storage.googleapis.com/gpt-engineer-file-uploads/DfL2Um3y3XXZxZX3OJNHS6nialn2/uploads/1762347464228-ChatGPT%20Image%20Nov%205%2C%202025%2C%2006_25_51%20PM.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ]
+}

@@ -1,0 +1,276 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
+All colors MUST be HSL.
+*/
+
+@layer base {
+  :root {
+    --background: 0 0% 100%;
+    --foreground: 215 25% 27%;
+
+    --card: 0 0% 100%;
+    --card-foreground: 215 25% 27%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 215 25% 27%;
+
+    --primary: 195 85% 41%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 195 85% 35%;
+
+    --secondary: 40 96% 55%;
+    --secondary-foreground: 215 25% 27%;
+    --secondary-hover: 40 96% 48%;
+
+    --muted: 210 40% 96%;
+    --muted-foreground: 215 16% 47%;
+
+    --accent: 195 100% 95%;
+    --accent-foreground: 195 85% 41%;
+
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 214 32% 91%;
+    --input: 214 32% 91%;
+    --ring: 195 85% 41%;
+
+    --radius: 0.75rem;
+    
+    --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+    --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+    --shadow-lg: 0 10px 25px -3px rgba(0, 0, 0, 0.1);
+    --shadow-xl: 0 20px 40px -4px rgba(0, 0, 0, 0.15);
+    
+    --gradient-primary: linear-gradient(135deg, hsl(195 85% 41%) 0%, hsl(195 85% 51%) 100%);
+    --gradient-secondary: linear-gradient(135deg, hsl(40 96% 55%) 0%, hsl(40 96% 65%) 100%);
+    --gradient-hero: linear-gradient(135deg, hsl(215 80% 16%) 0%, hsl(195 85% 30%) 50%, hsl(195 85% 41%) 100%);
+    --gradient-hero-accent: linear-gradient(135deg, hsl(40 96% 55%) 0%, hsl(30 100% 60%) 100%);
+    --gradient-glass: linear-gradient(135deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0.05) 100%);
+    
+    --transition-base: all 0.2s ease;
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+
+    --sidebar-background: 0 0% 98%;
+
+    --sidebar-foreground: 240 5.3% 26.1%;
+
+    --sidebar-primary: 240 5.9% 10%;
+
+    --sidebar-primary-foreground: 0 0% 98%;
+
+    --sidebar-accent: 240 4.8% 95.9%;
+
+    --sidebar-accent-foreground: 240 5.9% 10%;
+
+    --sidebar-border: 220 13% 91%;
+
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+
+  .dark {
+    --background: 215 28% 17%;
+    --foreground: 210 40% 98%;
+
+    --card: 215 28% 17%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 215 28% 17%;
+    --popover-foreground: 210 40% 98%;
+
+    --primary: 195 85% 51%;
+    --primary-foreground: 0 0% 100%;
+    --primary-hover: 195 85% 45%;
+
+    --secondary: 40 96% 60%;
+    --secondary-foreground: 215 28% 17%;
+    --secondary-hover: 40 96% 53%;
+
+    --muted: 217 33% 22%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 195 85% 25%;
+    --accent-foreground: 195 85% 95%;
+
+    --destructive: 0 63% 31%;
+    --destructive-foreground: 210 40% 98%;
+
+    --border: 217 33% 22%;
+    --input: 217 33% 22%;
+    --ring: 195 85% 51%;
+    --sidebar-background: 240 5.9% 10%;
+    --sidebar-foreground: 240 4.8% 95.9%;
+    --sidebar-primary: 224.3 76.3% 48%;
+    --sidebar-primary-foreground: 0 0% 100%;
+    --sidebar-accent: 240 3.7% 15.9%;
+    --sidebar-accent-foreground: 240 4.8% 95.9%;
+    --sidebar-border: 240 3.7% 15.9%;
+    --sidebar-ring: 217.2 91.2% 59.8%;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply bg-background text-foreground;
+  }
+
+  /* WCAG focus-visible for all interactive elements */
+  :focus-visible {
+    outline: 2px solid hsl(var(--primary));
+    outline-offset: 2px;
+    border-radius: 2px;
+  }
+
+  /* Minimum touch target size (WCAG 2.5.8) */
+  button, [role="button"], a, input, select, textarea {
+    min-height: 44px;
+  }
+
+  /* Exception for inline text links */
+  p a, li a, span a {
+    min-height: auto;
+  }
+}
+
+/* Product card hover overlay */
+.product-card-actions {
+  @apply opacity-0 translate-y-2 transition-all duration-200;
+}
+.group:hover .product-card-actions {
+  @apply opacity-100 translate-y-0;
+}
+
+/* Elevated surface + sheen sweep on hover */
+.surface-elevated {
+  @apply border border-border/60 bg-card shadow-sm transition-all duration-300;
+}
+.surface-elevated:hover {
+  @apply shadow-xl border-primary/30 -translate-y-1;
+}
+
+.sheen {
+  position: relative;
+  overflow: hidden;
+}
+.sheen::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-120%) skewX(-18deg);
+  background: linear-gradient(90deg, transparent, hsl(var(--primary-foreground) / 0.28), transparent);
+  transition: transform 0.7s cubic-bezier(0.4, 0, 0.2, 1);
+  pointer-events: none;
+}
+.group:hover .sheen::after,
+.sheen:hover::after {
+  transform: translateX(120%) skewX(-18deg);
+}
+
+/* Gradient headline text */
+.text-gradient-primary {
+  background: var(--gradient-primary);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* Top scroll progress bar */
+.scroll-progress {
+  background: var(--gradient-primary);
+}
+
+/* Premium glass card effect */
+.glass-card {
+  background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+/* Premium shimmer effect for badges */
+.shimmer {
+  background: linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.15) 50%, transparent 100%);
+  background-size: 200% 100%;
+  animation: shimmer 2s infinite;
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* Smooth page transitions */
+.page-enter {
+  animation: page-fade-in 0.3s ease-out both;
+}
+
+@keyframes page-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* Skip link */
+.skip-link {
+  @apply sr-only;
+}
+.skip-link:focus {
+  @apply not-sr-only fixed top-4 left-4 z-[100] rounded-lg bg-primary text-primary-foreground px-4 py-3 text-sm font-medium shadow-lg;
+}
+
+/* Mobile bottom nav safe area */
+.safe-area-bottom {
+  padding-bottom: env(safe-area-inset-bottom, 0px);
+}
+
+/* Add bottom padding on mobile for bottom nav */
+@media (max-width: 767px) {
+  body {
+    padding-bottom: 3.5rem;
+  }
+}
+
+/* Hero underline SVG animation */
+.animate-draw-underline path {
+  stroke-dasharray: 400;
+}
+
+/* Slide up animation for cookie/notification banners */
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(100%); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.animate-slide-up {
+  animation: slide-up 0.35s ease-out both;
+}
+
+/* Reduce motion for accessibility */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
+  .animate-fade-in-up,
+  .animate-fade-in-left,
+  .animate-fade-in-right,
+  .animate-slide-up,
+  .page-enter {
+    opacity: 1 !important;
+    transform: none !important;
+  }
+  .animate-draw-underline path {
+    stroke-dashoffset: 0 !important;
+  }
+  .shimmer { background: transparent !important; }
+}

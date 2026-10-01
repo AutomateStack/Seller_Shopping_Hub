@@ -1,0 +1,1 @@
+REVOKE ALL ON FUNCTION public.award_referral_credit() FROM public, anon, authenticated;

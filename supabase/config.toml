@@ -1,0 +1,27 @@
+project_id = "uzlgityytmhwwluylvhk"
+
+[functions.guest-checkout]
+verify_jwt = false
+
+[functions.guest-order-lookup]
+verify_jwt = false
+
+[functions.razorpay-create-order]
+verify_jwt = false
+
+[functions.razorpay-verify-payment]
+verify_jwt = false
+
+[functions.authenticated-checkout]
+verify_jwt = true
+
+[functions.send-order-email]
+verify_jwt = false
+[functions.redeem-loyalty-points]
+verify_jwt = true
+
+[functions.product-feed]
+verify_jwt = false
+
+[functions.dynamic-sitemap]
+verify_jwt = false

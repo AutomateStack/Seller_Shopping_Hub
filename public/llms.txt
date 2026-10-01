@@ -1,0 +1,22 @@
+# ShopHub
+
+> ShopHub is an online shopping destination for electronics, fashion, home essentials and more, with curated collections, secure payments, fast delivery, easy returns, plus a rewards lucky-draw and quiz program.
+
+## Pages
+
+- [Home](/): Featured deals, categories and new arrivals.
+- [Products](/products): Browse the full catalog with filters, search and categories.
+- [Blog](/blog): Shopping guides, product roundups and tips.
+- [Contact](/contact): Email, phone and contact form for customer support.
+- [Terms & Conditions](/terms): Site terms of use.
+- [Refunds & Cancellations](/refunds): Return, refund and cancellation policy.
+
+## Rewards
+
+- [Lucky Draw](/lucky-draw): Reward program with periodic prize draws.
+- [Contest Rules](/lucky-draw/rules): Eligibility and rules for the rewards program.
+- [Quiz](/quiz): Play quizzes to earn extra rewards.
+
+## Optional
+
+- [Sitemap](/sitemap.xml): Full list of indexable URLs.
