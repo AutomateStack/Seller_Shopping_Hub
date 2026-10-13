@@ -141,7 +141,7 @@ export default function SellerDashboard() {
             <CardHeader><CardTitle>Next up: Product management</CardTitle><CardDescription>Your seller account is ready for the next marketplace feature.</CardDescription></CardHeader>
             <CardContent className="space-y-3">
               <div className="flex items-start gap-3"><div className="rounded-lg bg-primary/10 p-2"><Package className="h-5 w-5 text-primary" /></div><div><p className="font-medium">Create your first listing</p><p className="text-sm text-muted-foreground">Product creation, image uploads, pricing, inventory, and product approval are planned next.</p></div></div>
-              <Button disabled={!active} className="w-full" onClick={() => navigate("/seller/products")}>Go to My Products <ArrowRight className="ml-2 h-4 w-4" /></Button>
+              <Button disabled className="w-full">My Products — coming soon <ArrowRight className="ml-2 h-4 w-4" /></Button>
               {!active && <p className="text-xs text-muted-foreground">Product tools unlock after your seller account is approved and active.</p>}
             </CardContent>
           </Card>
