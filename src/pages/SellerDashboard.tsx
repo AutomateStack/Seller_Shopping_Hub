@@ -23,6 +23,7 @@ export default function SellerDashboard() {
   const [marketplaceOrders, setMarketplaceOrders] = useState<any[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [productCount, setProductCount] = useState<number | null>(null);
+  const [inventorySummary, setInventorySummary] = useState({lowStock:0,outOfStock:0});
   const [salesPeriod, setSalesPeriod] = useState<"7d" | "30d" | "all">("30d");
 
   useEffect(() => {
@@ -42,10 +43,17 @@ export default function SellerDashboard() {
       }
       setSeller(row);
       if (row.onboarding_status === "approved" && row.account_status === "active") {
-        const { count, error: productError } = await db.schema("catalog").from("products")
-          .select("id", { count: "exact", head: true }).eq("seller_id", row.id);
+        const { data: productRows, count, error: productError } = await db.schema("catalog").from("products")
+          .select("id,status,stock_quantity", { count: "exact" }).eq("seller_id", row.id);
         if (!active) return;
-        if (productError) setError(productError.message); else setProductCount(count ?? 0);
+        if (productError) setError(productError.message); else {
+          setProductCount(count ?? 0);
+          const approved = productRows || [];
+          setInventorySummary({
+            lowStock: approved.filter((p:any)=>p.status==="approved" && Number(p.stock_quantity)>0 && Number(p.stock_quantity)<=5).length,
+            outOfStock: approved.filter((p:any)=>p.status==="approved" && Number(p.stock_quantity)===0).length
+          });
+        }
         setOrdersLoading(true);
         const { data: orderRows, error: orderError } = await db.schema("orders").from("marketplace_orders")
           .select("id,order_number,status,payment_status,payment_method,total_amount,refund_status,refund_amount,created_at,marketplace_order_items(id,product_title,quantity,unit_price,line_total,image_url)")
@@ -83,7 +91,7 @@ export default function SellerDashboard() {
             {error && <Alert variant="destructive"><AlertTriangle className="h-4 w-4"/><AlertTitle>Workspace notice</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
             {!isActive && <Alert><AlertTriangle className="h-4 w-4"/><AlertTitle>Seller account not active</AlertTitle><AlertDescription>Your application status is {seller.onboarding_status.replaceAll("_"," ")} and account status is {seller.account_status}. Some selling features remain unavailable until your account is approved and active.</AlertDescription></Alert>}
             <section><h2 className="text-xl font-bold">Dashboard</h2><p className="text-sm text-muted-foreground">Choose a workspace to get started.</p></section>
-            <section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3" aria-label="Seller dashboard links">
+            <section aria-label="Seller alerts" className="grid gap-3 sm:grid-cols-2">{(inventorySummary.lowStock>0||inventorySummary.outOfStock>0)&&<Card className="border-amber-500/40"><CardContent className="flex items-start gap-3 p-4"><span className="rounded-lg bg-amber-500/10 p-2 text-amber-600"><AlertTriangle className="h-5 w-5"/></span><div className="min-w-0 flex-1"><p className="font-semibold">Inventory needs attention</p><p className="text-sm text-muted-foreground">{inventorySummary.outOfStock} out of stock · {inventorySummary.lowStock} low stock (1–5 units)</p><Link to="/seller/products" className="mt-2 inline-flex items-center text-sm font-semibold text-primary">Review inventory <ArrowRight className="ml-2 h-4 w-4"/></Link></div></CardContent></Card>}{marketplaceOrders.filter(o=>["placed","confirmed"].includes(o.status)).length>0&&<Card className="border-primary/30"><CardContent className="flex items-start gap-3 p-4"><span className="rounded-lg bg-primary/10 p-2 text-primary"><ShoppingBag className="h-5 w-5"/></span><div className="min-w-0 flex-1"><p className="font-semibold">Orders need attention</p><p className="text-sm text-muted-foreground">{marketplaceOrders.filter(o=>["placed","confirmed"].includes(o.status)).length} order(s) awaiting confirmation or processing.</p><Link to="/seller/orders" className="mt-2 inline-flex items-center text-sm font-semibold text-primary">Review orders <ArrowRight className="ml-2 h-4 w-4"/></Link></div></CardContent></Card>}</section><section className="grid gap-5 sm:grid-cols-2 xl:grid-cols-3" aria-label="Seller dashboard links">
               <Link to="/seller/orders" className="group rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-ring"><Card className="h-full overflow-hidden border-border/70 transition-all group-hover:-translate-y-1 group-hover:border-primary/40 group-hover:shadow-lg"><div className="h-1.5 bg-primary"/><CardHeader className="flex flex-row items-center justify-between pb-3"><div><CardTitle>Orders</CardTitle><CardDescription className="mt-1">Manage and fulfill customer orders</CardDescription></div><span className="rounded-xl bg-primary/10 p-3 text-primary"><ShoppingBag className="h-6 w-6"/></span></CardHeader><CardContent><p className="text-3xl font-bold">{ordersLoading ? "—" : marketplaceOrders.length}</p><p className="mt-1 text-sm text-muted-foreground">Orders assigned to your store</p><p className="mt-5 inline-flex items-center text-sm font-semibold text-primary">Open orders <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1"/></p></CardContent></Card></Link>
               <Link to="/seller/products" className="group rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-ring"><Card className="h-full overflow-hidden border-border/70 transition-all group-hover:-translate-y-1 group-hover:border-primary/40 group-hover:shadow-lg"><div className="h-1.5 bg-violet-500"/><CardHeader className="flex flex-row items-center justify-between pb-3"><div><CardTitle>My products</CardTitle><CardDescription className="mt-1">Create listings and manage stock</CardDescription></div><span className="rounded-xl bg-violet-500/10 p-3 text-violet-600"><Package className="h-6 w-6"/></span></CardHeader><CardContent><p className="text-3xl font-bold">{productCount === null ? "—" : productCount}</p><p className="mt-1 text-sm text-muted-foreground">Product listings</p><p className="mt-5 inline-flex items-center text-sm font-semibold text-primary">Manage products <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1"/></p></CardContent></Card></Link>
               <Link to={`/shop/${seller.store_slug}`} className="group rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-ring"><Card className="h-full overflow-hidden border-border/70 transition-all group-hover:-translate-y-1 group-hover:border-primary/40 group-hover:shadow-lg"><div className="h-1.5 bg-emerald-500"/><CardHeader className="flex flex-row items-center justify-between pb-3"><div><CardTitle>Storefront</CardTitle><CardDescription className="mt-1">Preview your public seller page</CardDescription></div><span className="rounded-xl bg-emerald-500/10 p-3 text-emerald-600"><Store className="h-6 w-6"/></span></CardHeader><CardContent><p className="break-all text-lg font-bold">/shop/{seller.store_slug}</p><p className="mt-1 text-sm text-muted-foreground">Your customer-facing store</p><p className="mt-5 inline-flex items-center text-sm font-semibold text-primary">Open storefront <ExternalLink className="ml-2 h-4 w-4"/></p></CardContent></Card></Link>
