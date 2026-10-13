@@ -9,6 +9,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { ArrowLeft, CheckCircle2, Loader2, Package, RefreshCw, ShieldAlert, XCircle } from "lucide-react";
 
 const db = supabase as any;
@@ -44,7 +46,7 @@ export default function AdminProductReview() {
     if(status==="rejected"&&!window.confirm(`Reject "${p.title}"? The seller will see the review note.`))return;
     mutation.mutate({id:p.id,status,note:note||undefined});
   }
-  return <main className="min-h-screen bg-background">
+  return <SidebarProvider><div className="min-h-screen flex w-full bg-muted/30"><AdminSidebar activeTab="product-review" onTabChange={() => {}}/><div className="flex-1 min-w-0"><div className="h-14 flex items-center gap-4 border-b bg-background px-4"><SidebarTrigger/><h2 className="font-semibold text-sm">Product Review</h2></div><main className="min-h-screen bg-background">
     <header className="border-b border-[#f9a8c8]/60 bg-white/90"><div className="container mx-auto flex flex-wrap items-center justify-between gap-3 px-4 py-4"><div className="flex items-center gap-3"><div className="rounded-xl bg-[#fce7f3] p-2.5"><Package className="h-6 w-6 text-primary"/></div><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Shopping Hub</p><h1 className="text-xl font-bold">Product review</h1></div></div><div className="flex gap-2"><Button variant="outline" asChild><Link to="/admin"><ArrowLeft className="mr-2 h-4 w-4"/>Admin home</Link></Button><Button variant="outline" onClick={()=>void refetch()} disabled={isFetching}><RefreshCw className={`mr-2 h-4 w-4 ${isFetching?"animate-spin":""}`}/>Refresh</Button></div></div></header>
     <div className="container mx-auto max-w-6xl space-y-6 px-4 py-8">
       <div><h2 className="text-2xl font-bold">Product submissions</h2><p className="text-muted-foreground">Approve products before they are published to the marketplace.</p></div>
@@ -61,5 +63,5 @@ export default function AdminProductReview() {
         {p.status==="pending_review"&&<div className="space-y-2 border-t pt-4"><Label htmlFor={`product-note-${p.id}`}>Review note (required for changes/rejection)</Label><Textarea id={`product-note-${p.id}`} rows={2} maxLength={2000} value={notes[p.id]??""} onChange={e=>setNotes(old=>({...old,[p.id]:e.target.value}))} placeholder="Explain the changes needed…"/><div className="flex flex-wrap gap-2"><Button disabled={mutation.isPending} onClick={()=>decide(p,"approved")}><CheckCircle2 className="mr-2 h-4 w-4"/>Approve & publish</Button><Button variant="outline" disabled={mutation.isPending} onClick={()=>decide(p,"changes_requested")}><RefreshCw className="mr-2 h-4 w-4"/>Request changes</Button><Button variant="destructive" disabled={mutation.isPending} onClick={()=>decide(p,"rejected")}><XCircle className="mr-2 h-4 w-4"/>Reject</Button></div></div>}
       </CardContent></Card>)}</div>
     </div>
-  </main>;
+  </main></div></div></SidebarProvider>;
 }
