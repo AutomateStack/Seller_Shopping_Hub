@@ -61,6 +61,10 @@ export default function SellerOnboarding() {
         toast({ title: "Unable to load seller profile", description: error.message, variant: "destructive" });
       } else if (data) {
         const row = data as Seller;
+        if (row.onboarding_status === "approved" && row.account_status === "active") {
+          navigate("/seller/dashboard", { replace: true });
+          return;
+        }
         setSeller(row);
         setStoreName(row.store_name ?? "");
         setContactName(row.contact_name ?? "");
