@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, ImagePlus, Loader2, Package, Plus, Send, Trash2, AlertTriangle, Boxes, CircleAlert } from "lucide-react";
+import { ArrowLeft, ImagePlus, Loader2, Package, Plus, Send, Trash2, AlertTriangle, Boxes, CircleAlert, Save } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
 import { SellerPortalLayout } from "@/components/seller/SellerPortalLayout";
 
@@ -33,6 +33,8 @@ export default function SellerProducts() {
   const [uploading,setUploading] = useState(false);
   const [error,setError] = useState("");
   const [formOpen,setFormOpen] = useState(false);
+  const [stockDrafts,setStockDrafts] = useState<Record<string,string>>({});
+  const [savingStockId,setSavingStockId] = useState<string | null>(null);
 
   async function load() {
     setLoading(true); setError("");
@@ -108,6 +110,26 @@ export default function SellerProducts() {
 
   function cancelEdit() { setEditingId(null); setForm(emptyForm); setImages([]); setFormOpen(false); }
 
+  async function saveStock(product:Product) {
+    const raw = stockDrafts[product.id] ?? String(product.stock_quantity);
+    const stock = Number(raw);
+    if (!Number.isInteger(stock) || stock < 0 || stock > 1000000) {
+      toast({title:"Invalid stock quantity",description:"Enter a whole number from 0 to 1,000,000.",variant:"destructive"});
+      return;
+    }
+    setSavingStockId(product.id);
+    const {data,error:stockError} = await db.rpc("update_seller_product_stock",{p_product_id:product.id,p_stock_quantity:stock});
+    if (stockError) {
+      toast({title:"Could not update stock",description:stockError.message,variant:"destructive"});
+    } else {
+      const updated = data as Product;
+      setProducts(prev=>prev.map(p=>p.id===product.id?{...p,stock_quantity:updated.stock_quantity,updated_at:updated.updated_at}:p));
+      setStockDrafts(prev=>({...prev,[product.id]:String(updated.stock_quantity)}));
+      toast({title:"Inventory updated",description:`${product.title}: ${updated.stock_quantity} units available. Listing approval was preserved.`});
+    }
+    setSavingStockId(null);
+  }
+
   async function submitDraft(product:Product) {
     const {error:updateError} = await db.schema("catalog").from("products").update({status:"pending_review",review_notes:null}).eq("id",product.id);
     if (updateError) toast({title:"Could not submit product",description:updateError.message,variant:"destructive"});
@@ -155,7 +177,8 @@ export default function SellerProducts() {
       <section className="space-y-3"><div><h2 className="text-xl font-bold">Your listings ({products.length})</h2><p className="text-sm text-muted-foreground">Only your own products are shown here.</p></div>
         {products.length===0?<Card className="border-dashed"><CardContent className="py-10 text-center"><ImagePlus className="mx-auto h-8 w-8 text-muted-foreground"/><p className="mt-2 font-medium">No products yet</p><p className="text-sm text-muted-foreground">Create your first listing above.</p></CardContent></Card>:products.map(p=><Card key={p.id}><CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-start">
           {p.image_urls?.[0]?<img src={p.image_urls[0]} alt={p.title} className="h-24 w-24 rounded-lg border object-cover"/>:<div className="flex h-24 w-24 items-center justify-center rounded-lg bg-muted"><Package className="h-8 w-8 text-muted-foreground"/></div>}
-          <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold">{p.title}</h3><Badge variant={p.status==="approved"?"default":p.status==="rejected"?"destructive":"secondary"}>{pretty(p.status)}</Badge></div><p className="text-sm text-muted-foreground">{p.category}{p.brand? ` · ${p.brand}`:""}{p.sku? ` · SKU ${p.sku}`:""}</p><p className="mt-1 font-semibold">₹{Number(p.price).toFixed(2)}{p.mrp? <span className="ml-2 text-sm font-normal text-muted-foreground line-through">₹{Number(p.mrp).toFixed(2)}</span>:null}</p><div className="mt-2 flex flex-wrap items-center gap-2"><span className="text-sm text-muted-foreground">Available stock: {p.stock_quantity}</span>{p.status === "approved" && p.stock_quantity === 0 && <Badge variant="destructive">Out of stock</Badge>}{p.status === "approved" && p.stock_quantity > 0 && p.stock_quantity <= 5 && <Badge variant="secondary" className="border-amber-500/40 text-amber-700">Low stock</Badge>}</div>{p.review_notes&&<p className="mt-2 rounded-md bg-muted p-2 text-sm">Review note: {p.review_notes}</p>}</div>
+          <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold">{p.title}</h3><Badge variant={p.status==="approved"?"default":p.status==="rejected"?"destructive":"secondary"}>{pretty(p.status)}</Badge></div><p className="text-sm text-muted-foreground">{p.category}{p.brand? ` · ${p.brand}`:""}{p.sku? ` · SKU ${p.sku}`:""}</p><p className="mt-1 font-semibold">₹{Number(p.price).toFixed(2)}{p.mrp? <span className="ml-2 text-sm font-normal text-muted-foreground line-through">₹{Number(p.mrp).toFixed(2)}</span>:null}</p><div className="mt-2 flex flex-wrap items-center gap-2"><span className="text-sm text-muted-foreground">Available stock: {p.stock_quantity}</span>{p.status === "approved" && p.stock_quantity === 0 && <Badge variant="destructive">Out of stock</Badge>}{p.status === "approved" && p.stock_quantity > 0 && p.stock_quantity <= 5 && <Badge variant="secondary" className="border-amber-500/40 text-amber-700">Low stock</Badge>}</div>
+          {p.status === "approved" && <div className="mt-3 flex flex-wrap items-end gap-2 rounded-lg border bg-muted/30 p-3"><div className="space-y-1"><Label htmlFor={`stock-${p.id}`}>Update available stock</Label><Input id={`stock-${p.id}`} className="w-36" type="number" min="0" max="1000000" step="1" value={stockDrafts[p.id] ?? String(p.stock_quantity)} onChange={e=>setStockDrafts(prev=>({...prev,[p.id]:e.target.value}))} /></div><Button size="sm" onClick={()=>void saveStock(p)} disabled={savingStockId===p.id || Number(stockDrafts[p.id] ?? p.stock_quantity)===p.stock_quantity}><Save className="mr-2 h-4 w-4"/>{savingStockId===p.id?"Saving…":"Save stock"}</Button><p className="basis-full text-xs text-muted-foreground">Updates inventory only; product approval and listing details stay unchanged.</p></div>}{p.review_notes&&<p className="mt-2 rounded-md bg-muted p-2 text-sm">Review note: {p.review_notes}</p>}</div>
           {(p.status==="draft"||p.status==="rejected"||p.status==="changes_requested")&&<div className="flex flex-wrap gap-2"><Button variant="outline" onClick={()=>editProduct(p)}><Package className="mr-2 h-4 w-4"/>Edit product</Button><Button variant="outline" onClick={()=>void submitDraft(p)}><Send className="mr-2 h-4 w-4"/>Submit for review</Button></div>}
         </CardContent></Card>)}
       </section>
