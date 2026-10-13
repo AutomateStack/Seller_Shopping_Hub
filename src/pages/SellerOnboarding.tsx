@@ -24,6 +24,7 @@ type Seller = {
   onboarding_status: string;
   account_status: string;
   performance_tier: string;
+  review_notes: string | null;
 };
 
 const db = supabase as any;
@@ -84,6 +85,11 @@ export default function SellerOnboarding() {
       toast({ title: "Invalid store name", description: "Use a store name containing letters or numbers.", variant: "destructive" });
       return;
     }
+    const normalizedGstin = gstin.trim().toUpperCase();
+    if (normalizedGstin && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(normalizedGstin)) {
+      toast({ title: "Check the GSTIN format", description: "Enter a 15-character GSTIN in the expected format. This checks format only, not GST registration validity.", variant: "destructive" });
+      return;
+    }
     setSaving(true);
     const payload = {
       user_id: userId,
@@ -132,6 +138,7 @@ export default function SellerOnboarding() {
           <div><h1 className="text-3xl font-bold">Seller onboarding</h1><p className="text-muted-foreground mt-1">Set up your store details to start selling on Seller Shopping Hub.</p></div>
         </div>
         {seller && <Card><CardContent className="flex items-center gap-3 pt-6"><ShieldCheck className="h-5 w-5 text-primary" /><div><p className="font-medium">Application status: <span className="capitalize">{seller.onboarding_status.replaceAll("_", " ")}</span></p><p className="text-sm text-muted-foreground">Seller tier: {seller.performance_tier} · Account: {seller.account_status}</p></div></CardContent></Card>}
+        {seller?.onboarding_status === "needs_changes" && seller.review_notes && <Card className="border-amber-300 bg-amber-50/60"><CardHeader className="pb-2"><CardTitle className="text-base">Changes requested by the review team</CardTitle><CardDescription>Please correct the details below, save your changes, and submit the application again.</CardDescription></CardHeader><CardContent><p className="whitespace-pre-wrap text-sm">{seller.review_notes}</p></CardContent></Card>}
         <Card>
           <CardHeader><CardTitle>Store and contact details</CardTitle><CardDescription>Fields marked required must be completed before submission.</CardDescription></CardHeader>
           <CardContent>
