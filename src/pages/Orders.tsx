@@ -162,6 +162,7 @@ ${discount > 0 ? `<tr><td>Discount${order.coupon_code ? ` (${order.coupon_code})
       shipped: "bg-purple-100 text-purple-800",
       delivered: "bg-green-100 text-green-800",
       cancelled: "bg-red-100 text-red-800",
+      returned: "bg-orange-100 text-orange-800",
     };
     return colors[status] || "bg-muted text-muted-foreground";
   };
@@ -189,14 +190,14 @@ ${discount > 0 ? `<tr><td>Discount${order.coupon_code ? ` (${order.coupon_code})
 
           {marketplaceOrders.length > 0 && <section className="mb-8 space-y-4">
             <h2 className="text-xl font-semibold">Marketplace orders</h2>
-            {marketplaceOrders.map((order:any) => <Card key={order.id}><CardHeader><div className="flex flex-wrap items-start justify-between gap-3"><div><CardTitle className="text-lg">{order.order_number}</CardTitle><CardDescription>{format(new Date(order.created_at), "PPP")} · Cash on Delivery</CardDescription></div><div className="text-right"><Badge>{String(order.status).replaceAll("_"," ")}</Badge><p className="mt-2 text-lg font-semibold">₹{Number(order.total_amount).toFixed(2)}</p></div></div></CardHeader><CardContent className="space-y-3">
+            {marketplaceOrders.map((order:any) => <Card key={order.id}><CardHeader><div className="flex flex-wrap items-start justify-between gap-3"><div><CardTitle className="text-lg">{order.order_number}</CardTitle><CardDescription>{format(new Date(order.created_at), "PPP")} · {String(order.payment_method||"cod").toUpperCase()}</CardDescription></div><div className="text-right"><Badge className={getStatusColor(order.status)}>{String(order.status).replaceAll("_"," ").replace(/\\b\\w/g,(c:string)=>c.toUpperCase())}</Badge><p className="mt-2 text-lg font-semibold">₹{Number(order.total_amount).toFixed(2)}</p></div></div></CardHeader><CardContent className="space-y-3">
               <div className="text-sm text-muted-foreground">{order.shipping_name} · {order.shipping_phone}<br/>{order.shipping_address}, {order.shipping_city}, {order.shipping_state} {order.shipping_postal_code}</div>
               {(order.marketplace_order_items||[]).map((item:any)=><div key={item.id} className="flex items-center gap-3 border-t pt-3"><div className="h-14 w-14 overflow-hidden rounded bg-muted">{item.image_url&&<img src={item.image_url} alt={item.product_title} className="h-full w-full object-cover"/>}</div><div className="flex-1"><p className="font-medium">{item.product_title}</p><p className="text-sm text-muted-foreground">Qty {item.quantity} · ₹{Number(item.unit_price).toFixed(2)} each</p></div><p className="font-medium">₹{Number(item.line_total).toFixed(2)}</p></div>)}
             </CardContent></Card>)}
           </section>}
           {/* Order Summary Stats */}
           {(orders.length + marketplaceOrders.length) > 0 && (
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+            <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-6">
               <Card>
                 <CardContent className="p-3 text-center">
                   <p className="text-xs text-muted-foreground">Total</p>
@@ -206,25 +207,26 @@ ${discount > 0 ? `<tr><td>Discount${order.coupon_code ? ` (${order.coupon_code})
               <Card>
                 <CardContent className="p-3 text-center">
                   <p className="text-xs text-muted-foreground">Processing</p>
-                  <p className="text-xl font-bold text-primary">{orders.filter(o => o.status === "processing").length}</p>
+                  <p className="text-xl font-bold text-primary">{orders.filter(o => o.status === "processing").length + marketplaceOrders.filter((o:any) => o.status === "processing").length}</p>
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="p-3 text-center">
                   <p className="text-xs text-muted-foreground">Shipped</p>
-                  <p className="text-xl font-bold text-purple-600">{orders.filter(o => o.status === "shipped").length}</p>
+                  <p className="text-xl font-bold text-purple-600">{orders.filter(o => o.status === "shipped").length + marketplaceOrders.filter((o:any) => o.status === "shipped").length}</p>
                 </CardContent>
               </Card>
               <Card>
                 <CardContent className="p-3 text-center">
                   <p className="text-xs text-muted-foreground">Delivered</p>
-                  <p className="text-xl font-bold text-green-600">{orders.filter(o => o.status === "delivered").length}</p>
+                  <p className="text-xl font-bold text-green-600">{orders.filter(o => o.status === "delivered").length + marketplaceOrders.filter((o:any) => o.status === "delivered").length}</p>
                 </CardContent>
               </Card>
+              <Card><CardContent className="p-3 text-center"><p className="text-xs text-muted-foreground">Returned</p><p className="text-xl font-bold text-orange-600">{orders.filter(o => o.status === "returned").length + marketplaceOrders.filter((o:any) => o.status === "returned").length}</p></CardContent></Card>
             </div>
           )}
 
-          {orders.length === 0 ? (
+          {orders.length === 0 && marketplaceOrders.length === 0 ? (
             <Card>
               <CardContent className="py-8">
                 <div className="text-center">
