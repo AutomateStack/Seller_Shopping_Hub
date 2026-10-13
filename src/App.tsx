@@ -23,6 +23,7 @@ const Home = lazy(() => import("./pages/Home"));
 const Products = lazy(() => import("./pages/Products"));
 const ProductDetail = lazy(() => import("./pages/ProductDetail"));
 const SellerMarketplaceProduct = lazy(() => import("./pages/SellerMarketplaceProduct"));
+const MarketplaceCartCheckout = lazy(() => import("./pages/MarketplaceCartCheckout"));
 const CategoryLanding = lazy(() => import("./pages/CategoryLanding"));
 const Cart = lazy(() => import("./pages/Cart"));
 const Checkout = lazy(() => import("./pages/Checkout"));
@@ -75,6 +76,7 @@ const App = () => (
               <Route path="/products" element={<Products />} />
               <Route path="/products/:id" element={<ProductDetail />} />
               <Route path="/marketplace/products/:id" element={<SellerMarketplaceProduct />} />
+              <Route path="/marketplace/cart" element={<MarketplaceCartCheckout />} />
               <Route path="/shop/:slug" element={<CategoryLanding />} />
               <Route path="/cart" element={<Cart />} />
               <Route path="/checkout" element={<Checkout />} />
