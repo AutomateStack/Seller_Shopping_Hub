@@ -119,7 +119,7 @@ export default function SellerProducts() {
       </div>
       {error && <Card className="border-destructive"><CardContent className="p-4 text-sm text-destructive">{error}</CardContent></Card>}
       <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5"/> Add a product</CardTitle><CardDescription>Products remain unpublished until an admin approves them. Use accurate product details and images you have rights to use.</CardDescription></CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5"/> {editingId?"Edit product":"Add a product"}</CardTitle><CardDescription>Products remain unpublished until an admin approves them. Use accurate product details and images you have rights to use.</CardDescription></CardHeader>
         <CardContent className="space-y-5">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2"><Label htmlFor="product-title">Product name *</Label><Input id="product-title" maxLength={160} value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="e.g. Natural Coir Scrubber Pack of 5"/></div>
@@ -135,7 +135,7 @@ export default function SellerProducts() {
             {images.length>0&&<div className="flex flex-wrap gap-3">{images.map((url,i)=><div key={url} className="relative"><img src={url} alt={`Product image ${i+1}`} className="h-20 w-20 rounded-md border object-cover"/><Button type="button" size="icon" variant="destructive" className="absolute -right-2 -top-2 h-6 w-6" onClick={()=>setImages(prev=>prev.filter(x=>x!==url))} aria-label="Remove image"><Trash2 className="h-3 w-3"/></Button></div>)}</div>}
             <p className="text-xs text-muted-foreground">Images are uploaded privately by seller folder and served from the product image bucket.</p>
           </div>
-          <div className="flex flex-wrap gap-2"><Button onClick={()=>void saveProduct(false)} disabled={saving||uploading}><Plus className="mr-2 h-4 w-4"/>{saving?"Saving…":"Save draft"}</Button><Button variant="outline" onClick={()=>void saveProduct(true)} disabled={saving||uploading}><Send className="mr-2 h-4 w-4"/>Submit for review</Button></div>
+          <div className="flex flex-wrap gap-2"><Button onClick={()=>void saveProduct(false)} disabled={saving||uploading}><Plus className="mr-2 h-4 w-4"/>{saving?"Saving…":editingId?"Save changes":"Save draft"}</Button><Button variant="outline" onClick={()=>void saveProduct(true)} disabled={saving||uploading}><Send className="mr-2 h-4 w-4"/>Submit for review</Button>{editingId&&<Button variant="ghost" onClick={cancelEdit} disabled={saving||uploading}>Cancel edit</Button>}</div>
         </CardContent>
       </Card>
       <section className="space-y-3"><div><h2 className="text-xl font-bold">Your listings ({products.length})</h2><p className="text-sm text-muted-foreground">Only your own products are shown here.</p></div>
