@@ -193,7 +193,8 @@ export default function SellerDashboard() {
         </section>
 
         <section className="space-y-4" aria-label="Marketplace orders">
-          <div><h2 className="text-2xl font-bold">Recent marketplace orders</h2><p className="text-sm text-muted-foreground">Orders for products sold by your store.</p></div>
+          <div><h2 className="text-2xl font-bold">Orders</h2><p className="text-sm text-muted-foreground">Track pending orders, dispatch, shipping, and delivery from one place.</p></div>
+          <div className="flex flex-wrap gap-2" role="tablist" aria-label="Filter orders">{[{id:"pending",label:"Pending",count:marketplaceOrders.filter((o:any)=>["placed","confirmed"].includes(o.status)).length},{id:"ready",label:"Ready to dispatch",count:marketplaceOrders.filter((o:any)=>o.status==="processing").length},{id:"shipped",label:"Shipped",count:marketplaceOrders.filter((o:any)=>o.status==="shipped").length},{id:"delivered",label:"Delivered",count:marketplaceOrders.filter((o:any)=>o.status==="delivered").length},{id:"all",label:"All orders",count:marketplaceOrders.length}].map(tab=><Button key={tab.id} type="button" role="tab" aria-selected={orderTab===tab.id} variant={orderTab===tab.id?"default":"outline"} size="sm" onClick={()=>setOrderTab(tab.id)}>{tab.label}<span className="ml-2 rounded-full bg-background/20 px-1.5 text-xs">{tab.count}</span></Button>)}</div>
           {orderUpdateError && <Alert variant="destructive"><AlertTriangle className="h-4 w-4"/><AlertTitle>Order status not updated</AlertTitle><AlertDescription>{orderUpdateError}</AlertDescription></Alert>}
           {ordersLoading ? <Card><CardContent className="p-6 text-sm text-muted-foreground">Loading your orders…</CardContent></Card>
           : ordersError ? <Alert variant="destructive"><AlertTriangle className="h-4 w-4"/><AlertTitle>Could not load seller orders</AlertTitle><AlertDescription>{ordersError}</AlertDescription></Alert>
