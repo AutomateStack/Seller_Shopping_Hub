@@ -21,6 +21,7 @@ export default function SellerOrders() {
   const [updating, setUpdating] = useState("");
   const [search, setSearch] = useState("");
   const [refreshing, setRefreshing] = useState(false);
+  const [period, setPeriod] = useState<"7d" | "30d" | "all">("30d");
   const [selectedOrder, setSelectedOrder] = useState<any | null>(null);
   const [cancelTarget, setCancelTarget] = useState<any | null>(null);
   const load = async (id: string) => {
@@ -63,10 +64,11 @@ export default function SellerOrders() {
     setUpdating("");
   };
   const filtered = orders.filter(o => {
+    const matchesPeriod = period === "all" || new Date(o.created_at) >= new Date(Date.now() - (period === "7d" ? 7 : 30) * 24 * 60 * 60 * 1000);
     const matchesTab = tab === "all" || (tab === "pending" && ["placed","confirmed"].includes(o.status)) || (tab === "ready" && o.status === "processing") || (tab === "shipped" && o.status === "shipped") || (tab === "delivered" && o.status === "delivered") || (tab === "returned" && o.status === "returned");
     const term = search.trim().toLowerCase();
     const matchesSearch = !term || String(o.order_number || "").toLowerCase().includes(term) || (o.marketplace_order_items || []).some((item: any) => String(item.product_title || "").toLowerCase().includes(term));
-    return matchesTab && matchesSearch;
+    return matchesPeriod && matchesTab && matchesSearch;
   });
   const pendingPayment = orders.filter(o => o.payment_status !== "paid").reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
   const refreshOrders = async () => { if (!sellerId) return; setRefreshing(true); await load(sellerId); setRefreshing(false); };
@@ -78,7 +80,8 @@ export default function SellerOrders() {
       <Card><CardContent className="flex items-center gap-3 p-4"><div className="rounded-lg bg-amber-500/10 p-2 text-amber-600"><Clock3 className="h-5 w-5"/></div><div><p className="text-sm text-muted-foreground">Awaiting action</p><p className="text-2xl font-bold">{orders.filter(o=>["placed","confirmed","processing","shipped"].includes(o.status)).length}</p></div></CardContent></Card>
       <Card><CardContent className="flex items-center gap-3 p-4"><div className="rounded-lg bg-emerald-500/10 p-2 text-emerald-600"><Banknote className="h-5 w-5"/></div><div><p className="text-sm text-muted-foreground">Payment outstanding</p><p className="text-2xl font-bold">₹{pendingPayment.toFixed(2)}</p></div></CardContent></Card>
     </div>
-    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div className="flex flex-wrap gap-2" role="group" aria-label="Order date range">{[{id:"7d",label:"Last 7 days"},{id:"30d",label:"Last 30 days"},{id:"all",label:"All time"}].map(p=><Button key={p.id} variant={period===p.id?"default":"outline"} size="sm" onClick={()=>setPeriod(p.id as "7d"|"30d"|"all")}>{p.label}</Button>)}</div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex flex-wrap gap-2">{tabs.map(t=><Button key={t.id} variant={tab===t.id?"default":"outline"} size="sm" onClick={()=>setTab(t.id)}>{t.label}<span className="ml-2 rounded-full bg-background/20 px-1.5 text-xs">{t.count}</span></Button>)}</div>
       <Button variant="outline" size="sm" onClick={()=>void refreshOrders()} disabled={refreshing}>{refreshing?<Loader2 className="mr-2 h-4 w-4 animate-spin"/>:<RefreshCw className="mr-2 h-4 w-4"/>}Refresh</Button>
     </div>
