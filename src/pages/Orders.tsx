@@ -51,6 +51,7 @@ export default function Orders() {
   const { toast } = useToast();
   const [loading, setLoading] = useState(true);
   const [orders, setOrders] = useState<Order[]>([]);
+  const [marketplaceOrders, setMarketplaceOrders] = useState<any[]>([]);
 
   useEffect(() => {
     getOrders();
@@ -63,24 +64,22 @@ export default function Orders() {
       return;
     }
 
-    const { data, error } = await supabase
-      .from("orders")
-      .select(`
+    const [legacyResult, marketplaceResult] = await Promise.all([
+      supabase.from("orders").select(`
         id, total_amount, discount_amount, coupon_code, shipping_fee, tax_amount,
         tracking_number, estimated_delivery_date, status, created_at,
         shipping_address, city, state, zip_code,
-        order_items (
-          product_id, product_name, quantity, product_price, subtotal,
-          products:product_id (id, image_url, category, description)
-        )
-      `)
-      .eq("user_id", session.user.id)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      toast({ title: "Error", description: "Failed to load orders", variant: "destructive" });
-    } else {
-      setOrders((data as any) || []);
+        order_items (product_id, product_name, quantity, product_price, subtotal,
+          products:product_id (id, image_url, category, description))
+      `).eq("user_id", session.user.id).order("created_at", { ascending: false }),
+      (supabase as any).schema("orders").from("marketplace_orders")
+        .select("id,order_number,status,payment_method,payment_status,subtotal,shipping_amount,total_amount,shipping_name,shipping_phone,shipping_address,shipping_city,shipping_state,shipping_postal_code,created_at,marketplace_order_items(id,product_title,quantity,unit_price,line_total,image_url)")
+        .eq("buyer_id", session.user.id).order("created_at", { ascending: false })
+    ]);
+    if (!legacyResult.error) setOrders((legacyResult.data as any) || []);
+    if (!marketplaceResult.error) setMarketplaceOrders(marketplaceResult.data || []);
+    if (legacyResult.error && marketplaceResult.error) {
+      toast({ title: "Error loading orders", description: marketplaceResult.error.message || legacyResult.error.message || "Please refresh and try again.", variant: "destructive" });
     }
     setLoading(false);
   };
@@ -188,13 +187,20 @@ ${discount > 0 ? `<tr><td>Discount${order.coupon_code ? ` (${order.coupon_code})
         <div className="max-w-4xl mx-auto">
           <h1 className="text-3xl font-bold mb-6">My Orders</h1>
 
+          {marketplaceOrders.length > 0 && <section className="mb-8 space-y-4">
+            <h2 className="text-xl font-semibold">Marketplace orders</h2>
+            {marketplaceOrders.map((order:any) => <Card key={order.id}><CardHeader><div className="flex flex-wrap items-start justify-between gap-3"><div><CardTitle className="text-lg">{order.order_number}</CardTitle><CardDescription>{format(new Date(order.created_at), "PPP")} · Cash on Delivery</CardDescription></div><div className="text-right"><Badge>{String(order.status).replaceAll("_"," ")}</Badge><p className="mt-2 text-lg font-semibold">₹{Number(order.total_amount).toFixed(2)}</p></div></div></CardHeader><CardContent className="space-y-3">
+              <div className="text-sm text-muted-foreground">{order.shipping_name} · {order.shipping_phone}<br/>{order.shipping_address}, {order.shipping_city}, {order.shipping_state} {order.shipping_postal_code}</div>
+              {(order.marketplace_order_items||[]).map((item:any)=><div key={item.id} className="flex items-center gap-3 border-t pt-3"><div className="h-14 w-14 overflow-hidden rounded bg-muted">{item.image_url&&<img src={item.image_url} alt={item.product_title} className="h-full w-full object-cover"/>}</div><div className="flex-1"><p className="font-medium">{item.product_title}</p><p className="text-sm text-muted-foreground">Qty {item.quantity} · ₹{Number(item.unit_price).toFixed(2)} each</p></div><p className="font-medium">₹{Number(item.line_total).toFixed(2)}</p></div>)}
+            </CardContent></Card>)}
+          </section>}
           {/* Order Summary Stats */}
-          {orders.length > 0 && (
+          {(orders.length + marketplaceOrders.length) > 0 && (
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
               <Card>
                 <CardContent className="p-3 text-center">
                   <p className="text-xs text-muted-foreground">Total</p>
-                  <p className="text-xl font-bold">{orders.length}</p>
+                  <p className="text-xl font-bold">{orders.length + marketplaceOrders.length}</p>
                 </CardContent>
               </Card>
               <Card>
