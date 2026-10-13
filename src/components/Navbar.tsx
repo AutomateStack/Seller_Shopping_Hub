@@ -49,7 +49,7 @@ export const Navbar = () => {
   }, [queryClient]);
 
   const checkAdmin = async (userId: string) => {
-    const { data } = await supabase
+    const { data } = await (supabase as any)
       .schema("marketplace")
       .from("marketplace_admins")
       .select("admin_role")
