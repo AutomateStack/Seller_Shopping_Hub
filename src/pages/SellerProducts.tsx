@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, ImagePlus, Loader2, Package, Plus, Send, Trash2 } from "lucide-react";
@@ -14,6 +15,7 @@ import { SEOHead } from "@/components/SEOHead";
 const db = supabase as any;
 type Product = { id:string; title:string; description:string; category:string; brand:string; sku:string|null; price:number; mrp:number|null; stock_quantity:number; image_urls:string[]; status:string; review_notes:string|null; created_at:string };
 const emptyForm = { title:"", description:"", category:"", brand:"", sku:"", price:"", mrp:"", stock_quantity:"0" };
+const productCategories = ["Fashion & Clothing","Jewellery & Accessories","Beauty & Personal Care","Home & Kitchen","Kitchen & Dining","Grocery & Food","Electronics","Mobile Accessories","Toys & Games","Baby & Kids","Bags & Luggage","Footwear","Sports & Fitness","Automotive","Books & Stationery","Pet Supplies","Handmade & Crafts","Other"];
 const pretty = (s:string) => s.replaceAll("_"," ").replace(/\b\w/g,c=>c.toUpperCase());
 
 export default function SellerProducts() {
@@ -123,7 +125,7 @@ export default function SellerProducts() {
         <CardContent className="space-y-5">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2"><Label htmlFor="product-title">Product name *</Label><Input id="product-title" maxLength={160} value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="e.g. Natural Coir Scrubber Pack of 5"/></div>
-            <div className="space-y-2"><Label htmlFor="product-category">Category *</Label><Input id="product-category" value={form.category} onChange={e=>setForm({...form,category:e.target.value})} placeholder="e.g. Home & Kitchen"/></div>
+            <div className="space-y-2"><Label htmlFor="product-category">Category *</Label><Select value={form.category} onValueChange={value=>setForm({...form,category:value})}><SelectTrigger id="product-category"><SelectValue placeholder="Choose a product category"/></SelectTrigger><SelectContent>{productCategories.map(category=><SelectItem key={category} value={category}>{category}</SelectItem>)}</SelectContent></Select>{form.category&&!productCategories.includes(form.category)&&<p className="text-xs text-muted-foreground">Existing category: {form.category}. Choose a category to change it.</p>}</div>
             <div className="space-y-2"><Label htmlFor="product-brand">Brand</Label><Input id="product-brand" value={form.brand} onChange={e=>setForm({...form,brand:e.target.value})} placeholder="Brand name"/></div>
             <div className="space-y-2"><Label htmlFor="product-sku">Seller SKU (optional)</Label><Input id="product-sku" value={form.sku} onChange={e=>setForm({...form,sku:e.target.value})} placeholder="Your internal SKU"/></div>
             <div className="space-y-2"><Label htmlFor="product-price">Selling price (₹) *</Label><Input id="product-price" type="number" min="0.01" step="0.01" value={form.price} onChange={e=>setForm({...form,price:e.target.value})} placeholder="199.00"/></div>
