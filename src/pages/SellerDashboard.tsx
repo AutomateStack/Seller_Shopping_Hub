@@ -115,7 +115,7 @@ export default function SellerDashboard() {
 
         <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Store summary">
           {[
-            { label: "Products", value: "Not launched", icon: Package, detail: "Product management is the next feature" },
+            { label: "Products", value: "Manage listings", icon: Package, detail: "Create listings and track review status" },
             { label: "Orders", value: "—", icon: ShoppingBag, detail: "Order management is not enabled yet" },
             { label: "Sales", value: "—", icon: CircleDollarSign, detail: "Sales reporting will appear here" },
             { label: "Store URL", value: `/shop/${seller.store_slug}`, icon: Store, detail: "Storefront route reserved for your store" },
@@ -140,8 +140,8 @@ export default function SellerDashboard() {
           <Card>
             <CardHeader><CardTitle>Next up: Product management</CardTitle><CardDescription>Your seller account is ready for the next marketplace feature.</CardDescription></CardHeader>
             <CardContent className="space-y-3">
-              <div className="flex items-start gap-3"><div className="rounded-lg bg-primary/10 p-2"><Package className="h-5 w-5 text-primary" /></div><div><p className="font-medium">Create your first listing</p><p className="text-sm text-muted-foreground">Product creation, image uploads, pricing, inventory, and product approval are planned next.</p></div></div>
-              <Button disabled className="w-full">My Products — coming soon <ArrowRight className="ml-2 h-4 w-4" /></Button>
+              <div className="flex items-start gap-3"><div className="rounded-lg bg-primary/10 p-2"><Package className="h-5 w-5 text-primary" /></div><div><p className="font-medium">Create your first listing</p><p className="text-sm text-muted-foreground">Create listings with images, pricing, stock, and send them for admin approval before publication.</p></div></div>
+              <Button className="w-full" asChild><Link to="/seller/products">Open My Products <ArrowRight className="ml-2 h-4 w-4" /></Link></Button>
               {!active && <p className="text-xs text-muted-foreground">Product tools unlock after your seller account is approved and active.</p>}
             </CardContent>
           </Card>
