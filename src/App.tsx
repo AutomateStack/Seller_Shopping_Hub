@@ -27,6 +27,7 @@ const Cart = lazy(() => import("./pages/Cart"));
 const Checkout = lazy(() => import("./pages/Checkout"));
 const Auth = lazy(() => import("./pages/Auth"));
 const SellerOnboarding = lazy(() => import("./pages/SellerOnboarding"));
+const SellerDashboard = lazy(() => import("./pages/SellerDashboard"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const Admin = lazy(() => import("./pages/Admin"));
 const AdminSellerReview = lazy(() => import("./pages/AdminSellerReview"));
@@ -75,6 +76,7 @@ const App = () => (
               <Route path="/checkout" element={<Checkout />} />
               <Route path="/auth" element={<Auth />} />
               <Route path="/seller/onboarding" element={<SellerOnboarding />} />
+              <Route path="/seller/dashboard" element={<SellerDashboard />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/admin" element={<ProtectedRoute requireAdmin><Admin /></ProtectedRoute>} />
               <Route path="/admin/sellers" element={<ProtectedRoute requireAdmin><AdminSellerReview /></ProtectedRoute>} />
