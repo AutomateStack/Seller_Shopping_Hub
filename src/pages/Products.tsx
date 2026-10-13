@@ -95,6 +95,27 @@ export default function Products() {
 
   const maxPrice = priceStats?.max ?? 100000;
 
+  // Seller marketplace listings are stored separately from legacy public catalog products.
+  const { data: sellerListings = [], isLoading: sellerListingsLoading } = useQuery({
+    queryKey: ["approved-seller-listings", searchTerm, category],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any)
+        .schema("catalog")
+        .from("products")
+        .select("id,title,description,category,brand,price,mrp,stock_quantity,image_urls,created_at")
+        .eq("status", "approved")
+        .gt("stock_quantity", 0)
+        .order("created_at", { ascending: false })
+        .limit(60);
+      if (error) throw error;
+      return (data ?? []).filter((p: any) => {
+        const matchesSearch = !searchTerm || [p.title,p.description,p.brand,p.category].some((v:any) => String(v ?? "").toLowerCase().includes(searchTerm.toLowerCase()));
+        const matchesCategory = !category || category === "all" || p.category === category;
+        return matchesSearch && matchesCategory;
+      });
+    },
+  });
+
   const { data: products, isLoading } = useQuery({
     queryKey: ["products", searchTerm, category, sortBy, priceRange, activeSubcategoryId, inStockOnly, selectedCategories],
     placeholderData: (prev: any) => prev,
@@ -438,6 +459,34 @@ export default function Products() {
             </Button>
           </div>
         )}
+
+        {sellerListings.length > 0 && (
+          <section className="mb-8 space-y-4" aria-label="Seller marketplace products">
+            <div>
+              <h2 className="text-2xl font-bold">From our sellers</h2>
+              <p className="text-sm text-muted-foreground">Approved products from verified marketplace sellers.</p>
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+              {sellerListings.map((product: any) => (
+                <Card key={product.id} className="overflow-hidden h-full">
+                  <div className="aspect-square overflow-hidden bg-muted">
+                    <img src={product.image_urls?.[0] || "/placeholder.svg"} alt={product.title} loading="lazy" className="h-full w-full object-cover"/>
+                  </div>
+                  <CardContent className="p-4">
+                    <h3 className="font-semibold line-clamp-2">{product.title}</h3>
+                    {product.category && <p className="mt-1 text-xs text-muted-foreground">{product.category}</p>}
+                    <div className="mt-2 flex items-baseline gap-2">
+                      <p className="text-xl font-bold text-primary">₹{Number(product.price).toFixed(2)}</p>
+                      {product.mrp && Number(product.mrp) > Number(product.price) && <p className="text-sm text-muted-foreground line-through">₹{Number(product.mrp).toFixed(2)}</p>}
+                    </div>
+                    {product.stock_quantity > 0 && <p className="mt-1 text-xs text-muted-foreground">In stock</p>}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </section>
+        )}
+        {sellerListingsLoading && <p className="mb-6 text-sm text-muted-foreground">Loading seller listings…</p>}
 
         {/* Products Grid */}
         {isLoading ? (
