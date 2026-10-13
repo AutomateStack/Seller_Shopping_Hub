@@ -54,7 +54,7 @@ export default function SellerOnboarding() {
       if (!active) return;
       setUserId(session.user.id);
       setEmail(session.user.email ?? "");
-      const { data, error } = await db.from("seller_profiles").select("*").eq("user_id", session.user.id).maybeSingle();
+      const { data, error } = await db.schema("seller").from("seller_profiles").select("*").eq("user_id", session.user.id).maybeSingle();
       if (!active) return;
       if (error) {
         toast({ title: "Unable to load seller profile", description: error.message, variant: "destructive" });
@@ -97,8 +97,8 @@ export default function SellerOnboarding() {
       gstin: gstin.trim().toUpperCase() || null,
     };
     const result = seller
-      ? await db.from("seller_profiles").update(payload).eq("id", seller.id).select("*").single()
-      : await db.from("seller_profiles").insert(payload).select("*").single();
+      ? await db.schema("seller").from("seller_profiles").update(payload).eq("id", seller.id).select("*").single()
+      : await db.schema("seller").from("seller_profiles").insert(payload).select("*").single();
     if (result.error) {
       setSaving(false);
       toast({ title: "Could not save seller profile", description: result.error.message, variant: "destructive" });
