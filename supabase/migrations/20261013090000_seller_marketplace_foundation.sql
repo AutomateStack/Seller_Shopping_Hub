@@ -200,15 +200,13 @@ for delete to authenticated using (exists (
 create policy seller_documents_select_own on public.seller_documents
 for select to authenticated using (exists (
   select 1 from public.seller_profiles sp where sp.id = seller_id and sp.user_id = (select auth.uid())
-) or exists (select 1 from public.marketplace_admins ma where ma.user_id = (select auth.uid())));
+) or (select public.is_current_marketplace_admin()));
 create policy seller_documents_insert_own on public.seller_documents
 for insert to authenticated with check (exists (
   select 1 from public.seller_profiles sp where sp.id = seller_id and sp.user_id = (select auth.uid())
 ));
 create policy seller_documents_admin_update on public.seller_documents
-for update to authenticated using ((select public.is_current_marketplace_admin())) with check (exists (
-  select 1 from public.marketplace_admins ma where ma.user_id = (select auth.uid())
-));
+for update to authenticated using ((select public.is_current_marketplace_admin())) with check ((select public.is_current_marketplace_admin()));
 
 create policy marketplace_admins_read_self_or_super_admin on public.marketplace_admins
 for select to authenticated using (user_id = (select auth.uid()) or (select public.is_current_super_admin()));
@@ -216,26 +214,18 @@ for select to authenticated using (user_id = (select auth.uid()) or (select publ
 create policy seller_status_events_select_own_or_admin on public.seller_status_events
 for select to authenticated using (exists (
   select 1 from public.seller_profiles sp where sp.id = seller_id and sp.user_id = (select auth.uid())
-) or exists (select 1 from public.marketplace_admins ma where ma.user_id = (select auth.uid())));
+) or (select public.is_current_marketplace_admin()));
 create policy seller_status_events_insert_admin on public.seller_status_events
-for insert to authenticated with check (exists (
-  select 1 from public.marketplace_admins ma where ma.user_id = (select auth.uid())
-));
+for insert to authenticated with check ((select public.is_current_marketplace_admin()));
 
 create policy seller_appeals_select_own_or_admin on public.seller_appeals
-for select to authenticated using (submitted_by = (select auth.uid()) or exists (
-  select 1 from public.marketplace_admins ma where ma.user_id = (select auth.uid())
-));
+for select to authenticated using (submitted_by = (select auth.uid()) or (select public.is_current_marketplace_admin()));
 create policy seller_appeals_insert_own on public.seller_appeals
 for insert to authenticated with check (submitted_by = (select auth.uid()) and exists (
   select 1 from public.seller_profiles sp where sp.id = seller_id and sp.user_id = (select auth.uid())
 ));
 create policy seller_appeals_admin_update on public.seller_appeals
-for update to authenticated using (exists (
-  select 1 from public.marketplace_admins ma where ma.user_id = (select auth.uid())
-)) with check (exists (
-  select 1 from public.marketplace_admins ma where ma.user_id = (select auth.uid())
-));
+for update to authenticated using ((select public.is_current_marketplace_admin())) with check ((select public.is_current_marketplace_admin()));
 
 grant select, insert, update on public.seller_profiles to authenticated;
 grant select, insert, update, delete on public.seller_addresses to authenticated;
