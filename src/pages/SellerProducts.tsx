@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, ImagePlus, Loader2, Package, Plus, Send, Trash2 } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
+import { SellerPortalLayout } from "@/components/seller/SellerPortalLayout";
 
 const db = supabase as any;
 type Product = { id:string; title:string; description:string; category:string; brand:string; sku:string|null; price:number; mrp:number|null; stock_quantity:number; image_urls:string[]; status:string; review_notes:string|null; created_at:string };
@@ -114,7 +115,7 @@ export default function SellerProducts() {
   }
 
   if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
-  return <main className="min-h-screen bg-background">
+  return <SellerPortalLayout><main className="min-h-screen bg-background">
     <SEOHead title="My Products | Seller Shopping Hub" description="Manage your seller product listings." noindex />
     <div className="container mx-auto max-w-6xl space-y-6 px-4 py-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -150,5 +151,5 @@ export default function SellerProducts() {
         </CardContent></Card>)}
       </section>
     </div>
-  </main>;
+  </main></SellerPortalLayout>;
 }
