@@ -35,6 +35,7 @@ const Admin = lazy(() => import("./pages/Admin"));
 const AdminSellerReview = lazy(() => import("./pages/AdminSellerReview"));
 const SellerProducts = lazy(() => import("./pages/SellerProducts"));
 const AdminProductReview = lazy(() => import("./pages/AdminProductReview"));
+const AdminMarketplaceOrders = lazy(() => import("./pages/AdminMarketplaceOrders"));
 const AdminMarketplaceLinks = lazy(() => import("./pages/AdminMarketplaceLinks"));
 const AdminWhatsAppCatalog = lazy(() => import("./pages/AdminWhatsAppCatalog"));
 const Profile = lazy(() => import("./pages/Profile"));
@@ -88,6 +89,7 @@ const App = () => (
               <Route path="/admin" element={<ProtectedRoute requireAdmin><Admin /></ProtectedRoute>} />
               <Route path="/admin/sellers" element={<ProtectedRoute requireAdmin><AdminSellerReview /></ProtectedRoute>} />
               <Route path="/admin/product-review" element={<ProtectedRoute requireAdmin><AdminProductReview /></ProtectedRoute>} />
+              <Route path="/admin/marketplace-orders" element={<ProtectedRoute requireAdmin><AdminMarketplaceOrders /></ProtectedRoute>} />
               <Route path="/admin/whatsapp-catalog" element={<ProtectedRoute requireAdmin><AdminWhatsAppCatalog /></ProtectedRoute>} />
               <Route path="/admin/marketplace-links" element={<ProtectedRoute requireAdmin><AdminMarketplaceLinks /></ProtectedRoute>} />
               <Route path="/profile" element={<Profile />} />
