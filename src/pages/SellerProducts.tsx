@@ -86,8 +86,10 @@ export default function SellerProducts() {
     if (saveError) {
       toast({title:"Could not save product",description:saveError.message,variant:"destructive"});
     } else {
-      setProducts(prev=>[data as Product,...prev]); setForm(emptyForm); setImages([]);
-      toast({title:submit?"Product submitted for review":"Draft saved",description:submit?"An admin must approve it before it can be published.":"You can edit and submit it later."});
+      const saved = data as Product;
+      setProducts(prev=>editingId ? prev.map(p=>p.id===saved.id?saved:p) : [saved,...prev]);
+      setForm(emptyForm); setImages([]); setEditingId(null);
+      toast({title:submit?"Product submitted for review":editingId?"Product updated":"Draft saved",description:submit?"Your updated product has been submitted for admin review.":"You can edit and submit it later."});
     }
     setSaving(false);
   }
