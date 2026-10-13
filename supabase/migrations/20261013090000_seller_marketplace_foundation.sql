@@ -110,10 +110,7 @@ for each row execute function public.set_updated_at();
 create or replace function public.guard_seller_profile_privileged_fields()
 returns trigger language plpgsql security definer set search_path = '' as $$
 begin
-  if auth.uid() is not null and not exists (
-    select 1 from public.marketplace_admins ma
-    where ma.user_id = auth.uid() and ma.admin_role = 'super_admin'
-  ) then
+  if auth.uid() is not null and not public.is_current_super_admin() then
     if tg_op = 'INSERT' then
       new.onboarding_status := 'draft';
       new.account_status := 'active';
@@ -148,23 +145,43 @@ alter table public.seller_appeals enable row level security;
 
 -- Admin membership is intentionally not self-service. Provision the first super-admin
 -- through a trusted SQL/admin workflow, never from the public client.
+create or replace function public.is_current_marketplace_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $
+  select exists (
+    select 1 from public.marketplace_admins ma
+    where ma.user_id = auth.uid()
+  );
+$;
+
+create or replace function public.is_current_super_admin()
+returns boolean
+language sql
+stable
+security definer
+set search_path = ''
+as $
+  select exists (
+    select 1 from public.marketplace_admins ma
+    where ma.user_id = auth.uid() and ma.admin_role = 'super_admin'
+  );
+$;
+
 create policy seller_profiles_select_own on public.seller_profiles
-for select to authenticated using (user_id = (select auth.uid()) or exists (
-  select 1 from public.marketplace_admins ma where ma.user_id = (select auth.uid())
-));
+for select to authenticated using (user_id = (select auth.uid()) or (select public.is_current_marketplace_admin()));
 create policy seller_profiles_insert_own on public.seller_profiles
 for insert to authenticated with check (user_id = (select auth.uid()));
 create policy seller_profiles_update_own on public.seller_profiles
-for update to authenticated using (user_id = (select auth.uid()) or exists (
-  select 1 from public.marketplace_admins ma where ma.user_id = (select auth.uid())
-)) with check (user_id = (select auth.uid()) or exists (
-  select 1 from public.marketplace_admins ma where ma.user_id = (select auth.uid())
-));
+for update to authenticated using (user_id = (select auth.uid()) or (select public.is_current_marketplace_admin())) with check (user_id = (select auth.uid()) or (select public.is_current_marketplace_admin()));
 
 create policy seller_addresses_select_own on public.seller_addresses
 for select to authenticated using (exists (
   select 1 from public.seller_profiles sp where sp.id = seller_id and sp.user_id = (select auth.uid())
-) or exists (select 1 from public.marketplace_admins ma where ma.user_id = (select auth.uid())));
+) or (select public.is_current_marketplace_admin()));
 create policy seller_addresses_insert_own on public.seller_addresses
 for insert to authenticated with check (exists (
   select 1 from public.seller_profiles sp where sp.id = seller_id and sp.user_id = (select auth.uid())
@@ -189,16 +206,12 @@ for insert to authenticated with check (exists (
   select 1 from public.seller_profiles sp where sp.id = seller_id and sp.user_id = (select auth.uid())
 ));
 create policy seller_documents_admin_update on public.seller_documents
-for update to authenticated using (exists (
-  select 1 from public.marketplace_admins ma where ma.user_id = (select auth.uid())
-)) with check (exists (
+for update to authenticated using ((select public.is_current_marketplace_admin())) with check (exists (
   select 1 from public.marketplace_admins ma where ma.user_id = (select auth.uid())
 ));
 
 create policy marketplace_admins_read_self_or_super_admin on public.marketplace_admins
-for select to authenticated using (user_id = (select auth.uid()) or exists (
-  select 1 from public.marketplace_admins ma where ma.user_id = (select auth.uid()) and ma.admin_role = 'super_admin'
-));
+for select to authenticated using (user_id = (select auth.uid()) or (select public.is_current_super_admin()));
 
 create policy seller_status_events_select_own_or_admin on public.seller_status_events
 for select to authenticated using (exists (
