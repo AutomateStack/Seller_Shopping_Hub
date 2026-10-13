@@ -50,6 +50,7 @@ export const Navbar = () => {
 
   const checkAdmin = async (userId: string) => {
     const { data } = await supabase
+      .schema("marketplace")
       .from("marketplace_admins")
       .select("admin_role")
       .eq("user_id", userId)
