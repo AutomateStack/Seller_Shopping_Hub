@@ -178,6 +178,10 @@ export const Navbar = () => {
                 <DropdownMenuItem onClick={() => navigate("/profile")}>
                   Profile
                 </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => navigate("/seller/onboarding")}>
+                  Seller Portal
+                </DropdownMenuItem>
+                {isAdmin && <DropdownMenuItem onClick={() => navigate("/admin/sellers")}>Seller Applications</DropdownMenuItem>}
                 <DropdownMenuItem onClick={() => navigate("/orders")}>
                   My Orders
                 </DropdownMenuItem>
