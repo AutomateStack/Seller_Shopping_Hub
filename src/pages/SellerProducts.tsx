@@ -21,6 +21,7 @@ export default function SellerProducts() {
   const { toast } = useToast();
   const [userId,setUserId] = useState("");
   const [sellerId,setSellerId] = useState("");
+  const [editingId,setEditingId] = useState<string | null>(null);
   const [products,setProducts] = useState<Product[]>([]);
   const [form,setForm] = useState(emptyForm);
   const [images,setImages] = useState<string[]>([]);
