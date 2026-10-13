@@ -10,6 +10,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
+import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { ArrowLeft, CheckCircle2, Clock3, Loader2, RefreshCw, Search, ShieldAlert, Store, XCircle } from "lucide-react";
 
 const db = supabase as any;
@@ -95,6 +97,7 @@ export default function AdminSellerReview() {
   };
 
   return (
+    <SidebarProvider><div className="min-h-screen flex w-full bg-muted/30"><AdminSidebar activeTab="seller-applications" onTabChange={() => {}} /><div className="flex-1 min-w-0"><div className="h-14 flex items-center gap-4 border-b bg-background px-4"><SidebarTrigger /><h2 className="font-semibold text-sm">Seller Applications</h2></div>
     <div className="min-h-screen bg-background">
       <header className="border-b border-[#f9a8c8]/60 bg-white/90">
         <div className="container mx-auto flex flex-wrap items-center justify-between gap-3 px-4 py-4">
@@ -171,6 +174,6 @@ export default function AdminSellerReview() {
           })}
         </div>
       </main>
-    </div>
+    </div></div></div></SidebarProvider>
   );
 }
