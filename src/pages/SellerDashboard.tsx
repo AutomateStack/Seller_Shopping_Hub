@@ -23,6 +23,7 @@ export default function SellerDashboard() {
   const [marketplaceOrders, setMarketplaceOrders] = useState<any[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [productCount, setProductCount] = useState<number | null>(null);
+  const [salesPeriod, setSalesPeriod] = useState<"7d" | "30d" | "all">("30d");
 
   useEffect(() => {
     let active = true;
@@ -48,7 +49,7 @@ export default function SellerDashboard() {
         setOrdersLoading(true);
         const { data: orderRows, error: orderError } = await db.schema("orders").from("marketplace_orders")
           .select("id,order_number,status,payment_status,payment_method,total_amount,refund_status,refund_amount,created_at,marketplace_order_items(id,product_title,quantity,unit_price,line_total,image_url)")
-          .eq("seller_id", row.id).order("created_at", { ascending: false }).limit(100);
+          .eq("seller_id", row.id).order("created_at", { ascending: false }).limit(1000);
         if (!active) return;
         if (orderError) setError(orderError.message); else setMarketplaceOrders(orderRows || []);
         setOrdersLoading(false);
@@ -57,6 +58,17 @@ export default function SellerDashboard() {
     })();
     return () => { active = false; };
   }, [navigate]);
+
+  const salesOrders = marketplaceOrders.filter((order) => {
+    if (salesPeriod === "all") return true;
+    const days = salesPeriod === "7d" ? 7 : 30;
+    const cutoff = new Date();
+    cutoff.setDate(cutoff.getDate() - days);
+    return new Date(order.created_at) >= cutoff;
+  });
+  const grossSales = salesOrders.reduce((sum, order) => sum + Number(order.total_amount || 0), 0);
+  const refundsRecorded = salesOrders.filter((order) => order.refund_status === "refunded")
+    .reduce((sum, order) => sum + Number(order.refund_amount || 0), 0);
 
   const isActive = seller?.onboarding_status === "approved" && seller?.account_status === "active";
 
@@ -76,7 +88,7 @@ export default function SellerDashboard() {
               <Link to="/seller/products" className="group rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-ring"><Card className="h-full overflow-hidden border-border/70 transition-all group-hover:-translate-y-1 group-hover:border-primary/40 group-hover:shadow-lg"><div className="h-1.5 bg-violet-500"/><CardHeader className="flex flex-row items-center justify-between pb-3"><div><CardTitle>My products</CardTitle><CardDescription className="mt-1">Create listings and manage stock</CardDescription></div><span className="rounded-xl bg-violet-500/10 p-3 text-violet-600"><Package className="h-6 w-6"/></span></CardHeader><CardContent><p className="text-3xl font-bold">{productCount === null ? "—" : productCount}</p><p className="mt-1 text-sm text-muted-foreground">Product listings</p><p className="mt-5 inline-flex items-center text-sm font-semibold text-primary">Manage products <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1"/></p></CardContent></Card></Link>
               <Link to={`/shop/${seller.store_slug}`} className="group rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-ring"><Card className="h-full overflow-hidden border-border/70 transition-all group-hover:-translate-y-1 group-hover:border-primary/40 group-hover:shadow-lg"><div className="h-1.5 bg-emerald-500"/><CardHeader className="flex flex-row items-center justify-between pb-3"><div><CardTitle>Storefront</CardTitle><CardDescription className="mt-1">Preview your public seller page</CardDescription></div><span className="rounded-xl bg-emerald-500/10 p-3 text-emerald-600"><Store className="h-6 w-6"/></span></CardHeader><CardContent><p className="break-all text-lg font-bold">/shop/{seller.store_slug}</p><p className="mt-1 text-sm text-muted-foreground">Your customer-facing store</p><p className="mt-5 inline-flex items-center text-sm font-semibold text-primary">Open storefront <ExternalLink className="ml-2 h-4 w-4"/></p></CardContent></Card></Link>
               <Link to="/seller/onboarding" className="group rounded-2xl outline-none focus-visible:ring-2 focus-visible:ring-ring"><Card className="h-full border-border/70 transition-all group-hover:-translate-y-1 group-hover:border-primary/40 group-hover:shadow-lg"><CardHeader className="flex flex-row items-center justify-between pb-3"><div><CardTitle>Store details</CardTitle><CardDescription className="mt-1">Update your seller information</CardDescription></div><span className="rounded-xl bg-amber-500/10 p-3 text-amber-600"><Settings className="h-6 w-6"/></span></CardHeader><CardContent><p className="text-sm text-muted-foreground">Account: {seller.account_status}</p><p className="mt-1 text-sm text-muted-foreground">Seller tier: {seller.performance_tier}</p><p className="mt-5 inline-flex items-center text-sm font-semibold text-primary">Review details <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1"/></p></CardContent></Card></Link>
-              <Card className="border-border/70"><CardHeader className="flex flex-row items-center justify-between pb-3"><div><CardTitle>Sales overview</CardTitle><CardDescription className="mt-1">Order value after recorded refunds</CardDescription></div><span className="rounded-xl bg-sky-500/10 p-3 text-sky-600"><CircleDollarSign className="h-6 w-6"/></span></CardHeader><CardContent className="space-y-3"><div><p className="text-xs text-muted-foreground">Gross order value</p><p className="text-xl font-bold">₹{marketplaceOrders.reduce((sum,o)=>sum+Number(o.total_amount||0),0).toFixed(2)}</p></div><div className="flex items-center justify-between gap-3 text-sm"><span className="text-muted-foreground">Refunds recorded</span><span className="font-medium">−₹{marketplaceOrders.filter(o=>o.refund_status==="refunded").reduce((sum,o)=>sum+Number(o.refund_amount||0),0).toFixed(2)}</span></div><div className="border-t pt-3"><p className="text-xs text-muted-foreground">Net order value after refunds</p><p className="text-2xl font-bold">₹{Math.max(0,marketplaceOrders.reduce((sum,o)=>sum+Number(o.total_amount||0),0)-marketplaceOrders.filter(o=>o.refund_status==="refunded").reduce((sum,o)=>sum+Number(o.refund_amount||0),0)).toFixed(2)}</p></div><p className="text-xs text-muted-foreground">This is order value, not seller payout or profit. Only refunds marked as refunded are deducted.</p><Link to="/seller/orders" className="inline-flex items-center text-sm font-semibold text-primary">Review orders <ArrowRight className="ml-2 h-4 w-4"/></Link></CardContent></Card>
+              <Card className="border-border/70"><CardHeader className="flex flex-row items-center justify-between pb-3"><div><CardTitle>Sales overview</CardTitle><CardDescription className="mt-1">Order value after recorded refunds</CardDescription></div><span className="rounded-xl bg-sky-500/10 p-3 text-sky-600"><CircleDollarSign className="h-6 w-6"/></span></CardHeader><CardContent className="space-y-3"><div className="flex flex-wrap gap-2" role="group" aria-label="Sales date range"><Button type="button" size="sm" variant={salesPeriod==="7d"?"default":"outline"} onClick={()=>setSalesPeriod("7d")}>7 days</Button><Button type="button" size="sm" variant={salesPeriod==="30d"?"default":"outline"} onClick={()=>setSalesPeriod("30d")}>30 days</Button><Button type="button" size="sm" variant={salesPeriod==="all"?"default":"outline"} onClick={()=>setSalesPeriod("all")}>All time</Button></div><p className="text-xs text-muted-foreground">{salesPeriod==="7d"?"Last 7 days":salesPeriod==="30d"?"Last 30 days":"All loaded order history"}</p><div><p className="text-xs text-muted-foreground">Gross order value</p><p className="text-xl font-bold">₹{grossSales.toFixed(2)}</p></div><div className="flex items-center justify-between gap-3 text-sm"><span className="text-muted-foreground">Refunds recorded</span><span className="font-medium">−₹{refundsRecorded.toFixed(2)}</span></div><div className="border-t pt-3"><p className="text-xs text-muted-foreground">Net order value after refunds</p><p className="text-2xl font-bold">₹{Math.max(0,grossSales-refundsRecorded).toFixed(2)}</p></div><p className="text-xs text-muted-foreground">Order value, not seller payout or profit. Refunds are deducted only when marked refunded.</p><Link to="/seller/orders" className="inline-flex items-center text-sm font-semibold text-primary">Review orders <ArrowRight className="ml-2 h-4 w-4"/></Link></CardContent></Card>
             </section>
             {seller.review_notes && <Alert><ShieldCheck className="h-4 w-4"/><AlertTitle>Latest review note</AlertTitle><AlertDescription>{seller.review_notes}</AlertDescription></Alert>}
           </div>
