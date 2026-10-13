@@ -46,7 +46,7 @@ export default function AdminSellerReview() {
   const { data: sellers = [], isLoading, isError, error, refetch, isFetching } = useQuery<SellerApplication[]>({
     queryKey: ["marketplace-seller-applications"],
     queryFn: async () => {
-      const { data, error } = await db.from("seller_profiles").select("*").order("created_at", { ascending: false });
+      const { data, error } = await db.schema("seller").from("seller_profiles").select("*").order("created_at", { ascending: false });
       if (error) throw error;
       return (data ?? []) as SellerApplication[];
     },
