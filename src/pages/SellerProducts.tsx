@@ -94,6 +94,15 @@ export default function SellerProducts() {
     setSaving(false);
   }
 
+  function editProduct(product:Product) {
+    setEditingId(product.id);
+    setForm({title:product.title,description:product.description??"",category:product.category??"",brand:product.brand??"",sku:product.sku??"",price:String(product.price),mrp:product.mrp==null?"":String(product.mrp),stock_quantity:String(product.stock_quantity)});
+    setImages(product.image_urls??[]);
+    window.scrollTo({top:0,behavior:"smooth"});
+  }
+
+  function cancelEdit() { setEditingId(null); setForm(emptyForm); setImages([]); }
+
   async function submitDraft(product:Product) {
     const {error:updateError} = await db.schema("catalog").from("products").update({status:"pending_review",review_notes:null}).eq("id",product.id);
     if (updateError) toast({title:"Could not submit product",description:updateError.message,variant:"destructive"});
