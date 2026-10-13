@@ -47,6 +47,8 @@ export default function SellerDashboard() {
     else setMarketplaceOrders(data || []);
   };
 
+  const goToOrders = () => document.getElementById("marketplace-orders")?.scrollIntoView({ behavior: "smooth", block: "start" });
+
   const visibleOrders = marketplaceOrders.filter((order: any) => {
     if (orderTab === "all") return true;
     if (orderTab === "pending") return ["placed", "confirmed"].includes(order.status);
@@ -169,7 +171,7 @@ export default function SellerDashboard() {
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">{label}</CardTitle><Icon className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
-              <CardContent><p className="break-words text-xl font-bold">{value}</p><p className="mt-1 text-xs text-muted-foreground">{detail}</p></CardContent>
+              <CardContent><p className="break-words text-xl font-bold">{value}</p><p className="mt-1 text-xs text-muted-foreground">{detail}</p>{label === "Orders" && <Button type="button" variant="link" className="mt-2 h-auto p-0" onClick={goToOrders}>View orders <ArrowRight className="ml-1 h-3 w-3" /></Button>}{label === "Products" && <Button type="button" variant="link" className="mt-2 h-auto p-0" onClick={() => navigate("/seller/products")}>Manage products <ArrowRight className="ml-1 h-3 w-3" /></Button>}{label === "Store URL" && <Button type="button" variant="link" className="mt-2 h-auto p-0" onClick={() => navigate(`/shop/${seller.store_slug}`)}>Open storefront <ArrowRight className="ml-1 h-3 w-3" /></Button>}</CardContent>
             </Card>
           ))}
         </section>
