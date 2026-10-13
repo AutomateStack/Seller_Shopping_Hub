@@ -11,7 +11,7 @@ declare
   v_allowed boolean := false;
 begin
   if auth.uid() is null then raise exception 'Authentication required'; end if;
-  if p_status not in ('placed','confirmed','processing','shipped','delivered','cancelled','returned') then raise exception 'Invalid order status'; end if;
+  if p_status is null or p_status not in ('placed','confirmed','processing','shipped','delivered','cancelled','returned') then raise exception 'Invalid order status'; end if;
   select * into v_order from orders.marketplace_orders where id = p_order_id for update;
   if not found then raise exception 'Order not found'; end if;
   select exists (select 1 from seller.seller_profiles sp where sp.id = v_order.seller_id and sp.user_id = auth.uid() and sp.onboarding_status = 'approved' and sp.account_status = 'active') into v_is_seller;
@@ -22,7 +22,7 @@ begin
   else
     v_allowed := case v_order.status when 'placed' then p_status in ('confirmed','cancelled') when 'confirmed' then p_status in ('processing','cancelled') when 'processing' then p_status = 'shipped' when 'shipped' then p_status = 'delivered' else false end;
   end if;
-  if not v_allowed then raise exception 'Status transition from % to % is not allowed', v_order.status, p_status; end if;
+  if v_allowed is not true then raise exception 'Status transition from % to % is not allowed', v_order.status, p_status; end if;
   if p_status = 'cancelled' then
     update catalog.products p set stock_quantity = p.stock_quantity + i.quantity, updated_at = now()
     from orders.marketplace_order_items i where i.order_id = v_order.id and i.product_id = p.id;
