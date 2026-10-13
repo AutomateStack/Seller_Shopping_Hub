@@ -80,8 +80,9 @@ export default function SellerProducts() {
       toast({title:"Check MRP",description:"MRP must be greater than or equal to the selling price.",variant:"destructive"}); return;
     }
     setSaving(true);
-    const payload = {seller_id:sellerId,title:form.title.trim(),description:form.description.trim(),category:form.category.trim(),brand:form.brand.trim(),sku:form.sku.trim()||null,price,mrp,stock_quantity:stock,image_urls:images,status:submit?"pending_review":"draft"};
-    const {data,error:saveError} = await db.schema("catalog").from("products").insert(payload).select("*").single();
+    const payload = {seller_id:sellerId,title:form.title.trim(),description:form.description.trim(),category:form.category.trim(),brand:form.brand.trim(),sku:form.sku.trim()||null,price,mrp,stock_quantity:stock,image_urls:images,status:submit?"pending_review":"draft",review_notes:null};
+    const query = editingId ? db.schema("catalog").from("products").update(payload).eq("id",editingId).eq("seller_id",sellerId) : db.schema("catalog").from("products").insert(payload);
+    const {data,error:saveError} = await query.select("*").single();
     if (saveError) {
       toast({title:"Could not save product",description:saveError.message,variant:"destructive"});
     } else {
