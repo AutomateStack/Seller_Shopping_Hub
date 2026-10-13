@@ -5,7 +5,8 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Loader2, Store, Package, ShoppingBag, CircleDollarSign, ArrowRight, Settings, ShieldCheck, AlertTriangle, ExternalLink, LayoutDashboard, LogOut } from "lucide-react";
+import { Loader2, Store, Package, ShoppingBag, CircleDollarSign, ArrowRight, Settings, ShieldCheck, AlertTriangle, ExternalLink } from "lucide-react";
+import { SellerPortalLayout } from "@/components/seller/SellerPortalLayout";
 import { SEOHead } from "@/components/SEOHead";
 
 type Seller = {
@@ -57,7 +58,6 @@ export default function SellerDashboard() {
     return () => { active = false; };
   }, [navigate]);
 
-  const signOut = async () => { await supabase.auth.signOut(); navigate("/"); };
   const isActive = seller?.onboarding_status === "approved" && seller?.account_status === "active";
 
   if (loading) return <main className="flex min-h-screen items-center justify-center bg-muted/30"><Loader2 className="h-8 w-8 animate-spin text-primary"/></main>;
@@ -66,22 +66,8 @@ export default function SellerDashboard() {
   return (
     <main className="min-h-screen bg-muted/30">
       <SEOHead title="Seller Dashboard | Seller Shopping Hub" description="Manage your ShopHub seller store." noindex/>
-      <div className="min-h-screen lg:grid lg:grid-cols-[250px_minmax(0,1fr)]">
-        <aside className="hidden border-r bg-card lg:flex lg:min-h-screen lg:flex-col">
-          <div className="flex h-20 items-center gap-3 border-b px-5"><div className="rounded-xl bg-primary p-2 text-primary-foreground"><Store className="h-5 w-5"/></div><div><p className="font-bold">ShopHub</p><p className="text-xs text-muted-foreground">Seller portal</p></div></div>
-          <div className="border-b px-5 py-4"><p className="truncate font-semibold">{seller.store_name}</p><p className="mt-1 text-xs text-muted-foreground">Seller workspace</p></div>
-          <nav className="flex-1 space-y-1 p-3" aria-label="Seller navigation">
-            <Link to="/seller/dashboard" className="flex items-center gap-3 rounded-lg bg-primary/10 px-3 py-2.5 text-sm font-medium text-primary"><LayoutDashboard className="h-4 w-4"/>Dashboard</Link>
-            <Link to="/seller/orders" className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><ShoppingBag className="h-4 w-4"/>Orders<span className="ml-auto rounded-full bg-muted px-2 py-0.5 text-xs">{marketplaceOrders.length}</span></Link>
-            <Link to="/seller/products" className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><Package className="h-4 w-4"/>My products</Link>
-            <Link to={`/shop/${seller.store_slug}`} className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><Store className="h-4 w-4"/>Storefront</Link>
-            <Link to="/seller/onboarding" className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><Settings className="h-4 w-4"/>Store details</Link>
-          </nav>
-          <div className="space-y-1 border-t p-3"><Link to="/" className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm hover:bg-muted"><ExternalLink className="h-4 w-4"/>View marketplace</Link><button type="button" onClick={signOut} className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm text-muted-foreground hover:bg-muted"><LogOut className="h-4 w-4"/>Sign out</button></div>
-        </aside>
-        <div className="min-w-0">
-          <header className="flex flex-wrap items-center justify-between gap-3 border-b bg-card px-4 py-4 sm:px-7"><div className="flex items-center gap-3"><div className="rounded-xl bg-primary/10 p-2 text-primary lg:hidden"><Store className="h-5 w-5"/></div><div><p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Seller portal</p><h1 className="text-2xl font-bold">{seller.store_name}</h1></div></div><div className="flex flex-wrap gap-2"><Badge variant={isActive ? "default" : "secondary"}>{seller.onboarding_status.replaceAll("_"," ")}</Badge><Button variant="outline" size="sm" asChild><Link to="/seller/onboarding"><Settings className="mr-2 h-4 w-4"/>Store details</Link></Button></div></header>
-          <div className="mx-auto max-w-7xl space-y-7 p-4 sm:p-7">
+      <SellerPortalLayout storeName={seller.store_name}>
+      <div className="mx-auto max-w-7xl space-y-7 p-4 sm:p-7">
             {error && <Alert variant="destructive"><AlertTriangle className="h-4 w-4"/><AlertTitle>Workspace notice</AlertTitle><AlertDescription>{error}</AlertDescription></Alert>}
             {!isActive && <Alert><AlertTriangle className="h-4 w-4"/><AlertTitle>Seller account not active</AlertTitle><AlertDescription>Your application status is {seller.onboarding_status.replaceAll("_"," ")} and account status is {seller.account_status}. Some selling features remain unavailable until your account is approved and active.</AlertDescription></Alert>}
             <section><h2 className="text-xl font-bold">Dashboard</h2><p className="text-sm text-muted-foreground">Choose a workspace to get started.</p></section>
@@ -94,8 +80,7 @@ export default function SellerDashboard() {
             </section>
             {seller.review_notes && <Alert><ShieldCheck className="h-4 w-4"/><AlertTitle>Latest review note</AlertTitle><AlertDescription>{seller.review_notes}</AlertDescription></Alert>}
           </div>
-        </div>
-      </div>
-    </main>
+
+      </SellerPortalLayout>    </main>
   );
 }
