@@ -25,6 +25,7 @@ export function AdminSidebar({ activeTab, onTabChange }: AdminSidebarProps) {
   const onSellerReviewRoute = location.pathname === "/admin/sellers";
   const onProductReviewRoute = location.pathname === "/admin/product-review";
   const onMarketplaceOrdersRoute = location.pathname === "/admin/marketplace-orders";
+  const onSellerProductsRoute = location.pathname === "/admin/seller-products";
 
   const handleNavigation = (value: string) => {
     if (value === "marketplace-links") {
@@ -43,8 +44,16 @@ export function AdminSidebar({ activeTab, onTabChange }: AdminSidebarProps) {
       navigate("/admin/product-review");
       return;
     }
+    if (value === "marketplace-orders") {
+      navigate("/admin/marketplace-orders");
+      return;
+    }
+    if (value === "seller-products") {
+      navigate("/admin/seller-products");
+      return;
+    }
 
-    if (onMarketplaceRoute || onWhatsAppCatalogRoute || onSellerReviewRoute || onProductReviewRoute || onMarketplaceOrdersRoute) {
+    if (onMarketplaceRoute || onWhatsAppCatalogRoute || onSellerReviewRoute || onProductReviewRoute || onMarketplaceOrdersRoute || onSellerProductsRoute) {
       window.location.assign(`/admin?tab=${encodeURIComponent(value)}`);
       return;
     }
@@ -57,7 +66,7 @@ export function AdminSidebar({ activeTab, onTabChange }: AdminSidebarProps) {
   return (
     <Sidebar collapsible="icon" className="border-r">
       <SidebarHeader className="p-4"><div className="flex items-center gap-2"><div className="h-8 w-8 rounded-lg bg-primary flex items-center justify-center"><Package className="h-4 w-4 text-primary-foreground" /></div>{!collapsed && <div><h2 className="font-bold text-sm">ShopHub</h2><p className="text-xs text-muted-foreground">Admin Panel</p></div>}</div></SidebarHeader>
-      <SidebarContent><SidebarGroup><SidebarGroupLabel>Management</SidebarGroupLabel><SidebarGroupContent><SidebarMenu>{menuItems.map((item) => <SidebarMenuItem key={item.value}><SidebarMenuButton onClick={() => handleNavigation(item.value)} isActive={activeTab === item.value || (item.value === "marketplace-links" && onMarketplaceRoute) || (item.value === "whatsapp-catalog" && onWhatsAppCatalogRoute) || (item.value === "seller-applications" && onSellerReviewRoute) || (item.value === "product-review" && onProductReviewRoute) || (item.value === "marketplace-orders" && onMarketplaceOrdersRoute)} tooltip={item.title}><item.icon className="h-4 w-4" />{!collapsed && <span>{item.title}</span>}</SidebarMenuButton></SidebarMenuItem>)}</SidebarMenu></SidebarGroupContent></SidebarGroup></SidebarContent>
+      <SidebarContent><SidebarGroup><SidebarGroupLabel>Management</SidebarGroupLabel><SidebarGroupContent><SidebarMenu>{menuItems.map((item) => <SidebarMenuItem key={item.value}><SidebarMenuButton onClick={() => handleNavigation(item.value)} isActive={activeTab === item.value || (item.value === "marketplace-links" && onMarketplaceRoute) || (item.value === "whatsapp-catalog" && onWhatsAppCatalogRoute) || (item.value === "seller-applications" && onSellerReviewRoute) || (item.value === "product-review" && onProductReviewRoute) || (item.value === "marketplace-orders" && onMarketplaceOrdersRoute) || (item.value === "seller-products" && onSellerProductsRoute)} tooltip={item.title}><item.icon className="h-4 w-4" />{!collapsed && <span>{item.title}</span>}</SidebarMenuButton></SidebarMenuItem>)}</SidebarMenu></SidebarGroupContent></SidebarGroup></SidebarContent>
       <SidebarFooter className="p-3"><SidebarMenu><SidebarMenuItem><SidebarMenuButton onClick={() => navigate("/")} tooltip="Back to Store"><Settings className="h-4 w-4" />{!collapsed && <span>Back to Store</span>}</SidebarMenuButton></SidebarMenuItem><SidebarMenuItem><SidebarMenuButton onClick={handleSignOut} tooltip="Sign Out"><LogOut className="h-4 w-4" />{!collapsed && <span>Sign Out</span>}</SidebarMenuButton></SidebarMenuItem></SidebarMenu></SidebarFooter>
     </Sidebar>
   );
