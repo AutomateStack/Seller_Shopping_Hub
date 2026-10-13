@@ -468,7 +468,7 @@ export default function Products() {
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {sellerListings.map((product: any) => (
-                <Card key={product.id} className="overflow-hidden h-full">
+                <Link key={product.id} to={`/marketplace/products/${product.id}`} className="block h-full"><Card className="overflow-hidden h-full transition-shadow hover:shadow-lg">
                   <div className="aspect-square overflow-hidden bg-muted">
                     <img src={product.image_urls?.[0] || "/placeholder.svg"} alt={product.title} loading="lazy" className="h-full w-full object-cover"/>
                   </div>
@@ -481,7 +481,7 @@ export default function Products() {
                     </div>
                     {product.stock_quantity > 0 && <p className="mt-1 text-xs text-muted-foreground">In stock</p>}
                   </CardContent>
-                </Card>
+                </Card></Link>
               ))}
             </div>
           </section>
