@@ -151,12 +151,7 @@ language sql
 stable
 security definer
 set search_path = ''
-as $
-  select exists (
-    select 1 from public.marketplace_admins ma
-    where ma.user_id = auth.uid()
-  );
-$;
+as 'select exists (select 1 from public.marketplace_admins ma where ma.user_id = auth.uid())';
 
 create or replace function public.is_current_super_admin()
 returns boolean
@@ -164,12 +159,7 @@ language sql
 stable
 security definer
 set search_path = ''
-as $
-  select exists (
-    select 1 from public.marketplace_admins ma
-    where ma.user_id = auth.uid() and ma.admin_role = 'super_admin'
-  );
-$;
+as 'select exists (select 1 from public.marketplace_admins ma where ma.user_id = auth.uid() and ma.admin_role = ''super_admin'')';
 
 create policy seller_profiles_select_own on public.seller_profiles
 for select to authenticated using (user_id = (select auth.uid()) or (select public.is_current_marketplace_admin()));
