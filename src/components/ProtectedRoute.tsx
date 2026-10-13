@@ -29,10 +29,9 @@ export function ProtectedRoute({ children, requireAdmin = false, redirectTo = "/
 
       if (requireAdmin) {
         const { data } = await supabase
-          .from("user_roles")
-          .select("role")
+          .from("marketplace_admins")
+          .select("admin_role")
           .eq("user_id", session.user.id)
-          .eq("role", "admin")
           .maybeSingle();
         if (cancelled) return;
 
