@@ -25,15 +25,21 @@ export default function AdminProductReview() {
   const {data:products=[],isLoading,isError,error,refetch,isFetching}=useQuery<Product[]>({
     queryKey:["admin-product-review"],
     queryFn:async()=>{
-      const {data,error}=await db.schema("catalog").from("products").select("*").order("created_at",{ascending:false});
+      const {data,error}=await db.schema("catalog").from("products").select("id,seller_id,title,description,category,brand,sku,price,mrp,stock_quantity,image_urls,status,created_at").order("created_at",{ascending:false});
       if(error) throw error;
-      return (data??[]) as Product[];
+      const rows=(data??[]) as Product[];
+      const {data:noteRows,error:notesError}=await db.schema("catalog").from("product_review_notes").select("product_id,review_notes");
+      if(notesError) throw notesError;
+      const noteMap=new Map((noteRows??[]).map((n:any)=>[n.product_id,n.review_notes]));
+      return rows.map(p=>({...p,review_notes:noteMap.get(p.id)??null}));
     }
   });
   const mutation=useMutation({
     mutationFn:async({id,status,note}:{id:string;status:"approved"|"rejected"|"changes_requested";note?:string})=>{
-      const {error}=await db.schema("catalog").from("products").update({status,review_notes:note??null,reviewed_at:new Date().toISOString()}).eq("id",id);
-      if(error) throw error;
+      const {error:statusError}=await db.schema("catalog").from("products").update({status,reviewed_at:new Date().toISOString()}).eq("id",id);
+      if(statusError) throw statusError;
+      const {error:noteError}=await db.schema("catalog").from("product_review_notes").upsert({product_id:id,review_notes:note??null,updated_at:new Date().toISOString()},{onConflict:"product_id"});
+      if(noteError) throw noteError;
     },
     onSuccess:async()=>{toast({title:"Product review saved",description:"The seller can see the updated status in My Products."});await client.invalidateQueries({queryKey:["admin-product-review"]});},
     onError:(e:Error)=>toast({title:"Could not save review",description:e.message,variant:"destructive"})
