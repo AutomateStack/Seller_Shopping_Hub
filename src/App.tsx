@@ -26,6 +26,7 @@ const CategoryLanding = lazy(() => import("./pages/CategoryLanding"));
 const Cart = lazy(() => import("./pages/Cart"));
 const Checkout = lazy(() => import("./pages/Checkout"));
 const Auth = lazy(() => import("./pages/Auth"));
+const SellerOnboarding = lazy(() => import("./pages/SellerOnboarding"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const Admin = lazy(() => import("./pages/Admin"));
 const AdminMarketplaceLinks = lazy(() => import("./pages/AdminMarketplaceLinks"));
@@ -72,6 +73,7 @@ const App = () => (
               <Route path="/cart" element={<Cart />} />
               <Route path="/checkout" element={<Checkout />} />
               <Route path="/auth" element={<Auth />} />
+              <Route path="/seller/onboarding" element={<SellerOnboarding />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/admin" element={<ProtectedRoute requireAdmin><Admin /></ProtectedRoute>} />
               <Route path="/admin/whatsapp-catalog" element={<ProtectedRoute requireAdmin><AdminWhatsAppCatalog /></ProtectedRoute>} />
