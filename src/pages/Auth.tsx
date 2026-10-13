@@ -69,7 +69,7 @@ export default function Auth() {
         title: "Success",
         description: "Signed in successfully",
       });
-      navigate("/");
+      navigate(searchParams.get("next") || "/");
     }
 
     setLoading(false);
