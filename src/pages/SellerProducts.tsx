@@ -31,6 +31,7 @@ export default function SellerProducts() {
   const [saving,setSaving] = useState(false);
   const [uploading,setUploading] = useState(false);
   const [error,setError] = useState("");
+  const [formOpen,setFormOpen] = useState(false);
 
   async function load() {
     setLoading(true); setError("");
@@ -90,20 +91,21 @@ export default function SellerProducts() {
     } else {
       const saved = data as Product;
       setProducts(prev=>editingId ? prev.map(p=>p.id===saved.id?saved:p) : [saved,...prev]);
-      setForm(emptyForm); setImages([]); setEditingId(null);
+      setForm(emptyForm); setImages([]); setEditingId(null); setFormOpen(false);
       toast({title:submit?"Product submitted for review":editingId?"Product updated":"Draft saved",description:submit?"Your updated product has been submitted for admin review.":"You can edit and submit it later."});
     }
     setSaving(false);
   }
 
   function editProduct(product:Product) {
+    setFormOpen(true);
     setEditingId(product.id);
     setForm({title:product.title,description:product.description??"",category:product.category??"",brand:product.brand??"",sku:product.sku??"",price:String(product.price),mrp:product.mrp==null?"":String(product.mrp),stock_quantity:String(product.stock_quantity)});
     setImages(product.image_urls??[]);
     window.scrollTo({top:0,behavior:"smooth"});
   }
 
-  function cancelEdit() { setEditingId(null); setForm(emptyForm); setImages([]); }
+  function cancelEdit() { setEditingId(null); setForm(emptyForm); setImages([]); setFormOpen(false); }
 
   async function submitDraft(product:Product) {
     const {error:updateError} = await db.schema("catalog").from("products").update({status:"pending_review",review_notes:null}).eq("id",product.id);
@@ -120,7 +122,7 @@ export default function SellerProducts() {
         <Button variant="outline" asChild><Link to="/seller/dashboard"><ArrowLeft className="mr-2 h-4 w-4"/> Seller dashboard</Link></Button>
       </div>
       {error && <Card className="border-destructive"><CardContent className="p-4 text-sm text-destructive">{error}</CardContent></Card>}
-      <Card>
+      {formOpen ? <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5"/> {editingId?"Edit product":"Add a product"}</CardTitle><CardDescription>Products remain unpublished until an admin approves them. Use accurate product details and images you have rights to use.</CardDescription></CardHeader>
         <CardContent className="space-y-5">
           <div className="grid gap-4 md:grid-cols-2">
@@ -139,7 +141,7 @@ export default function SellerProducts() {
           </div>
           <div className="flex flex-wrap gap-2"><Button onClick={()=>void saveProduct(false)} disabled={saving||uploading}><Plus className="mr-2 h-4 w-4"/>{saving?"Saving…":editingId?"Save changes":"Save draft"}</Button><Button variant="outline" onClick={()=>void saveProduct(true)} disabled={saving||uploading}><Send className="mr-2 h-4 w-4"/>Submit for review</Button>{editingId&&<Button variant="ghost" onClick={cancelEdit} disabled={saving||uploading}>Cancel edit</Button>}</div>
         </CardContent>
-      </Card>
+      </Card> : <Button type="button" className="w-full sm:w-auto" onClick={()=>{setEditingId(null);setForm(emptyForm);setImages([]);setFormOpen(true);}}><Plus className="mr-2 h-4 w-4"/> Add a product</Button>}
       <section className="space-y-3"><div><h2 className="text-xl font-bold">Your listings ({products.length})</h2><p className="text-sm text-muted-foreground">Only your own products are shown here.</p></div>
         {products.length===0?<Card className="border-dashed"><CardContent className="py-10 text-center"><ImagePlus className="mx-auto h-8 w-8 text-muted-foreground"/><p className="mt-2 font-medium">No products yet</p><p className="text-sm text-muted-foreground">Create your first listing above.</p></CardContent></Card>:products.map(p=><Card key={p.id}><CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-start">
           {p.image_urls?.[0]?<img src={p.image_urls[0]} alt={p.title} className="h-24 w-24 rounded-lg border object-cover"/>:<div className="flex h-24 w-24 items-center justify-center rounded-lg bg-muted"><Package className="h-8 w-8 text-muted-foreground"/></div>}
