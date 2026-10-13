@@ -22,6 +22,7 @@ import { ScrollProgress } from "@/components/ScrollProgress";
 const Home = lazy(() => import("./pages/Home"));
 const Products = lazy(() => import("./pages/Products"));
 const ProductDetail = lazy(() => import("./pages/ProductDetail"));
+const SellerMarketplaceProduct = lazy(() => import("./pages/SellerMarketplaceProduct"));
 const CategoryLanding = lazy(() => import("./pages/CategoryLanding"));
 const Cart = lazy(() => import("./pages/Cart"));
 const Checkout = lazy(() => import("./pages/Checkout"));
@@ -73,6 +74,7 @@ const App = () => (
               <Route path="/" element={<Home />} />
               <Route path="/products" element={<Products />} />
               <Route path="/products/:id" element={<ProductDetail />} />
+              <Route path="/marketplace/products/:id" element={<SellerMarketplaceProduct />} />
               <Route path="/shop/:slug" element={<CategoryLanding />} />
               <Route path="/cart" element={<Cart />} />
               <Route path="/checkout" element={<Checkout />} />
