@@ -87,7 +87,7 @@ export default function Auth() {
           full_name: fullName,
           referral_code: refCode,
         },
-        emailRedirectTo: `${window.location.origin}/`,
+        emailRedirectTo: `${window.location.origin}/seller/onboarding`,
       },
     });
 
@@ -100,11 +100,12 @@ export default function Auth() {
     } else {
       toast({
         title: "Success",
-        description: "Account created successfully! You can now sign in.",
+        description: signUpData.session ? "Account created. Continue setting up your seller store." : "Account created. Check your email to confirm your account, then continue seller onboarding.",
       });
     }
 
     setLoading(false);
+    if (!error && signUpData.session) navigate("/seller/onboarding");
   };
 
   return (
