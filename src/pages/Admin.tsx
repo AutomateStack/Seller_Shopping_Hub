@@ -83,7 +83,7 @@ export default function Admin() {
   useEffect(() => {
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (!session) { navigate("/auth"); return; }
-      const { data } = await (supabase as any).from("marketplace_admins").select("admin_role").eq("user_id", session.user.id).maybeSingle();
+      const { data } = await (supabase as any).schema("marketplace").from("marketplace_admins").select("admin_role").eq("user_id", session.user.id).maybeSingle();
       if (!data) navigate("/");
       else setIsAdmin(true);
       setAuthChecking(false);
