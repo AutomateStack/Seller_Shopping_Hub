@@ -43,8 +43,12 @@ export function AdminSidebar({ activeTab, onTabChange }: AdminSidebarProps) {
       navigate("/admin/whatsapp-catalog");
       return;
     }
+    if (value === "seller-applications") {
+      navigate("/admin/sellers");
+      return;
+    }
 
-    if (onMarketplaceRoute || onWhatsAppCatalogRoute) {
+    if (onMarketplaceRoute || onWhatsAppCatalogRoute || onSellerReviewRoute) {
       window.location.assign(`/admin?tab=${encodeURIComponent(value)}`);
       return;
     }
