@@ -1,4 +1,7 @@
 import { Navbar } from "@/components/Navbar";
+import { Link } from "react-router-dom";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import { AnnouncementBar } from "@/components/AnnouncementBar";
 import { SEOHead } from "@/components/SEOHead";
 import { useQuery } from "@tanstack/react-query";
@@ -30,6 +33,19 @@ export default function Home() {
         .select("id, name, price, image_url, stock, featured, created_at, category, description")
         .order("created_at", { ascending: false })
         .limit(20);
+      if (error) throw error;
+      return data ?? [];
+    },
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const { data: sellerProducts = [] } = useQuery({
+    queryKey: ["home-approved-seller-products"],
+    queryFn: async () => {
+      const { data, error } = await (supabase as any).schema("catalog").from("products")
+        .select("id,title,category,price,mrp,image_urls,stock_quantity,created_at")
+        .eq("status", "approved").gt("stock_quantity", 0)
+        .order("created_at", { ascending: false }).limit(8);
       if (error) throw error;
       return data ?? [];
     },
@@ -82,6 +98,24 @@ export default function Home() {
       <HeroSection />
       <FeaturesStrip />
       <CategoriesSection />
+      {sellerProducts.length > 0 && (
+        <section className="container mx-auto px-4 py-10" aria-label="Marketplace seller products">
+          <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
+            <div><p className="text-sm font-semibold uppercase tracking-wider text-primary">Marketplace</p><h2 className="text-2xl font-bold md:text-3xl">From our sellers</h2><p className="text-muted-foreground">Discover approved products from our seller community.</p></div>
+            <Button variant="outline" asChild><Link to="/products">View all products</Link></Button>
+          </div>
+          <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
+            {sellerProducts.map((product: any) => (
+              <Link key={product.id} to={`/marketplace/products/${product.id}`} className="block">
+                <Card className="h-full overflow-hidden transition-shadow hover:shadow-lg">
+                  <div className="aspect-square bg-muted"><img src={product.image_urls?.[0] || "/placeholder.svg"} alt={product.title} loading="lazy" className="h-full w-full object-cover"/></div>
+                  <CardContent className="p-3 md:p-4"><h3 className="line-clamp-2 font-semibold">{product.title}</h3><p className="mt-1 text-xs text-muted-foreground">{product.category}</p><div className="mt-2 flex flex-wrap items-baseline gap-2"><span className="font-bold text-primary">₹{Number(product.price).toFixed(2)}</span>{product.mrp && Number(product.mrp)>Number(product.price)&&<span className="text-xs text-muted-foreground line-through">₹{Number(product.mrp).toFixed(2)}</span>}</div></CardContent>
+                </Card>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
       <DealsSection />
       
       {newArrivals.length > 0 && <NewArrivalsSection products={newArrivals} />}
