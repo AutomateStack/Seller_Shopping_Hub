@@ -30,6 +30,26 @@ export default function SellerDashboard() {
   const [marketplaceOrders, setMarketplaceOrders] = useState<any[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
   const [ordersError, setOrdersError] = useState("");
+  const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
+  const [orderUpdateError, setOrderUpdateError] = useState("");
+
+  const updateOrderStatus = async (orderId: string, status: string) => {
+    setUpdatingOrderId(orderId);
+    setOrderUpdateError("");
+    const { error } = await db.rpc("update_marketplace_order_status", { p_order_id: orderId, p_status: status });
+    setUpdatingOrderId(null);
+    if (error) { setOrderUpdateError(error.message); return; }
+    const { data, error: refreshError } = await db.schema("orders").from("marketplace_orders")
+      .select("id,order_number,status,payment_status,total_amount,created_at,marketplace_order_items(id,product_title,quantity,unit_price,line_total)")
+      .eq("seller_id", seller?.id || "").order("created_at", { ascending: false }).limit(20);
+    if (refreshError) setOrdersError(refreshError.message);
+    else setMarketplaceOrders(data || []);
+  };
+
+  const sellerNextStatuses = (status: string) => ({
+    placed: ["confirmed", "cancelled"], confirmed: ["processing", "cancelled"],
+    processing: ["shipped"], shipped: ["delivered"],
+  } as Record<string, string[]>)[status] || [];
 
   useEffect(() => {
     let active = true;
@@ -164,10 +184,11 @@ export default function SellerDashboard() {
 
         <section className="space-y-4" aria-label="Marketplace orders">
           <div><h2 className="text-2xl font-bold">Recent marketplace orders</h2><p className="text-sm text-muted-foreground">Orders for products sold by your store.</p></div>
+          {orderUpdateError && <Alert variant="destructive"><AlertTriangle className="h-4 w-4"/><AlertTitle>Order status not updated</AlertTitle><AlertDescription>{orderUpdateError}</AlertDescription></Alert>}
           {ordersLoading ? <Card><CardContent className="p-6 text-sm text-muted-foreground">Loading your orders…</CardContent></Card>
           : ordersError ? <Alert variant="destructive"><AlertTriangle className="h-4 w-4"/><AlertTitle>Could not load seller orders</AlertTitle><AlertDescription>{ordersError}</AlertDescription></Alert>
           : marketplaceOrders.length === 0 ? <Card><CardContent className="p-8 text-center"><ShoppingBag className="mx-auto mb-3 h-8 w-8 text-muted-foreground"/><p className="font-medium">No marketplace orders yet</p><p className="text-sm text-muted-foreground">New orders containing your listings will appear here.</p></CardContent></Card>
-          : marketplaceOrders.map((order:any)=><Card key={order.id}><CardContent className="space-y-3 p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-semibold">{order.order_number}</p><p className="text-sm text-muted-foreground">{new Date(order.created_at).toLocaleString()}</p></div><div className="text-right"><Badge>{String(order.status).replaceAll("_"," ")}</Badge><p className="mt-1 font-semibold">₹{Number(order.total_amount).toFixed(2)}</p></div></div>{(order.marketplace_order_items||[]).map((item:any)=><div key={item.id} className="flex justify-between gap-3 border-t pt-3 text-sm"><div><p className="font-medium">{item.product_title}</p><p className="text-muted-foreground">Qty: {item.quantity} · ₹{Number(item.unit_price).toFixed(2)} each</p></div><p className="font-medium">₹{Number(item.line_total).toFixed(2)}</p></div>)}</CardContent></Card>)}
+          : marketplaceOrders.map((order:any)=><Card key={order.id}><CardContent className="space-y-3 p-5"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-semibold">{order.order_number}</p><p className="text-sm text-muted-foreground">{new Date(order.created_at).toLocaleString()}</p></div><div className="text-right"><Badge>{String(order.status).replaceAll("_"," ")}</Badge><p className="mt-1 font-semibold">₹{Number(order.total_amount).toFixed(2)}</p><div className="mt-2 flex flex-wrap justify-end gap-2">{sellerNextStatuses(order.status).map((status:string)=><Button key={status} size="sm" variant={status==="cancelled"?"destructive":"outline"} disabled={updatingOrderId===order.id} onClick={()=>void updateOrderStatus(order.id,status)}>{updatingOrderId===order.id?"Updating…":status.replaceAll("_"," ")}</Button>)}</div></div></div>{(order.marketplace_order_items||[]).map((item:any)=><div key={item.id} className="flex justify-between gap-3 border-t pt-3 text-sm"><div><p className="font-medium">{item.product_title}</p><p className="text-muted-foreground">Qty: {item.quantity} · ₹{Number(item.unit_price).toFixed(2)} each</p></div><p className="font-medium">₹{Number(item.line_total).toFixed(2)}</p></div>)}</CardContent></Card>)}
         </section>
 
         {seller.review_notes && <Alert><Clock3 className="h-4 w-4" /><AlertTitle>Latest review note</AlertTitle><AlertDescription>{seller.review_notes}</AlertDescription></Alert>}
