@@ -29,41 +29,9 @@ export default function SellerDashboard() {
   const [error, setError] = useState("");
   const [marketplaceOrders, setMarketplaceOrders] = useState<any[]>([]);
   const [ordersLoading, setOrdersLoading] = useState(false);
-  const [ordersError, setOrdersError] = useState("");
-  const [updatingOrderId, setUpdatingOrderId] = useState<string | null>(null);
-  const [orderUpdateError, setOrderUpdateError] = useState("");
-  const [orderTab, setOrderTab] = useState("pending");
   const [productCount, setProductCount] = useState<number | null>(null);
 
-  const updateOrderStatus = async (orderId: string, status: string) => {
-    setUpdatingOrderId(orderId);
-    setOrderUpdateError("");
-    const { error } = await db.rpc("update_marketplace_order_status", { p_order_id: orderId, p_status: status });
-    setUpdatingOrderId(null);
-    if (error) { setOrderUpdateError(error.message); return; }
-    const { data, error: refreshError } = await db.schema("orders").from("marketplace_orders")
-      .select("id,order_number,status,payment_status,total_amount,created_at,marketplace_order_items(id,product_title,quantity,unit_price,line_total,image_url)")
-      .eq("seller_id", seller?.id || "").order("created_at", { ascending: false }).limit(20);
-    if (refreshError) setOrdersError(refreshError.message);
-    else setMarketplaceOrders(data || []);
-  };
-
-  const goToOrders = () => navigate("/seller/orders");
   const signOut = async () => { await supabase.auth.signOut(); navigate("/"); };
-
-  const visibleOrders = marketplaceOrders.filter((order: any) => {
-    if (orderTab === "all") return true;
-    if (orderTab === "pending") return ["placed", "confirmed"].includes(order.status);
-    if (orderTab === "ready") return order.status === "processing";
-    if (orderTab === "shipped") return order.status === "shipped";
-    if (orderTab === "delivered") return order.status === "delivered";
-    return false;
-  });
-
-  const sellerNextStatuses = (status: string) => ({
-    placed: ["confirmed", "cancelled"], confirmed: ["processing", "cancelled"],
-    processing: ["shipped"], shipped: ["delivered"],
-  } as Record<string, string[]>)[status] || [];
 
   useEffect(() => {
     let active = true;
@@ -99,7 +67,7 @@ export default function SellerDashboard() {
             .eq("seller_id", row.id)
             .order("created_at", { ascending: false })
             .limit(20);
-          if (orderError) setOrdersError(orderError.message);
+          if (orderError) setError(orderError.message);
           else setMarketplaceOrders(orderRows || []);
           setOrdersLoading(false);
         }
