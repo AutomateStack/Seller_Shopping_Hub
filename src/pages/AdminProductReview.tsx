@@ -14,7 +14,7 @@ import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { ArrowLeft, CheckCircle2, Loader2, Package, RefreshCw, ShieldAlert, XCircle } from "lucide-react";
 
 const db = supabase as any;
-type Product = {id:string;seller_id:string;title:string;description:string;category:string;brand:string;sku:string|null;price:number;mrp:number|null;stock_quantity:number;image_urls:string[];status:string;review_notes:string|null;created_at:string;};
+type Product = {id:string;seller_id:string;title:string;description:string;category:string;brand:string;sku:string|null;price:number;mrp:number|null;stock_quantity:number;image_urls:string[];status:string;review_notes:string|null;seller_change_summary?:string|null;created_at:string;};
 const pretty=(s:string)=>s.replaceAll("_"," ").replace(/\b\w/g,c=>c.toUpperCase());
 
 export default function AdminProductReview() {
@@ -28,10 +28,10 @@ export default function AdminProductReview() {
       const {data,error}=await db.schema("catalog").from("products").select("id,seller_id,title,description,category,brand,sku,price,mrp,stock_quantity,image_urls,status,created_at").order("created_at",{ascending:false});
       if(error) throw error;
       const rows=(data??[]) as Product[];
-      const {data:noteRows,error:notesError}=await db.schema("catalog").from("product_review_notes").select("product_id,review_notes");
+      const {data:noteRows,error:notesError}=await db.schema("catalog").from("product_review_notes").select("product_id,review_notes,seller_change_summary");
       if(notesError) throw notesError;
-      const noteMap=new Map((noteRows??[]).map((n:any)=>[n.product_id,n.review_notes]));
-      return rows.map(p=>({...p,review_notes:noteMap.get(p.id)??null}));
+      const noteMap=new Map((noteRows??[]).map((n:any)=>[n.product_id,n]));
+      return rows.map(p=>({...p,review_notes:noteMap.get(p.id)?.review_notes??null,seller_change_summary:noteMap.get(p.id)?.seller_change_summary??null}));
     }
   });
   const mutation=useMutation({
@@ -65,7 +65,7 @@ export default function AdminProductReview() {
         {p.image_urls?.length>0&&<div className="flex flex-wrap gap-2">{p.image_urls.map((url,i)=><a href={url} target="_blank" rel="noreferrer" key={url}><img src={url} alt={`${p.title} image ${i+1}`} className="h-24 w-24 rounded-md border object-cover"/></a>)}</div>}
         <p className="whitespace-pre-wrap text-sm">{p.description||"No description provided."}</p>
         <div className="grid gap-3 sm:grid-cols-3"><div><p className="text-xs text-muted-foreground">Selling price</p><p className="font-semibold">₹{Number(p.price).toFixed(2)}</p></div><div><p className="text-xs text-muted-foreground">MRP</p><p>{p.mrp? `₹${Number(p.mrp).toFixed(2)}`:"Not provided"}</p></div><div><p className="text-xs text-muted-foreground">Stock</p><p>{p.stock_quantity}</p></div><div><p className="text-xs text-muted-foreground">SKU</p><p>{p.sku||"Not provided"}</p></div></div>
-        {p.review_notes&&<div className="rounded-lg bg-muted p-3 text-sm">Previous note: {p.review_notes}</div>}
+        {p.seller_change_summary&&<div className="rounded-lg border border-primary/30 bg-primary/5 p-3"><p className="font-semibold text-sm">Seller change summary</p><p className="mt-1 whitespace-pre-wrap text-sm">{p.seller_change_summary}</p></div>}{p.review_notes&&<div className="rounded-lg bg-muted p-3 text-sm">Previous admin note: {p.review_notes}</div>}
         {p.status==="pending_review"&&<div className="space-y-2 border-t pt-4"><Label htmlFor={`product-note-${p.id}`}>Review note (required for changes/rejection)</Label><Textarea id={`product-note-${p.id}`} rows={2} maxLength={2000} value={notes[p.id]??""} onChange={e=>setNotes(old=>({...old,[p.id]:e.target.value}))} placeholder="Explain the changes needed…"/><div className="flex flex-wrap gap-2"><Button disabled={mutation.isPending} onClick={()=>decide(p,"approved")}><CheckCircle2 className="mr-2 h-4 w-4"/>Approve & publish</Button><Button variant="outline" disabled={mutation.isPending} onClick={()=>decide(p,"changes_requested")}><RefreshCw className="mr-2 h-4 w-4"/>Request changes</Button><Button variant="destructive" disabled={mutation.isPending} onClick={()=>decide(p,"rejected")}><XCircle className="mr-2 h-4 w-4"/>Reject</Button></div></div>}
       </CardContent></Card>)}</div>
     </div>
