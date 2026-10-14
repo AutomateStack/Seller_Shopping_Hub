@@ -138,6 +138,11 @@ export default function SellerProducts() {
       (editingProduct.mrp == null ? null : Number(editingProduct.mrp)) !== mrp ||
       JSON.stringify(editingProduct.image_urls||[]) !== JSON.stringify(images)
     );
+    if (approvedEdit && !detailChanged) {
+      toast({title:"No product detail changes",description:"Use the separate inventory controls to change stock. Edit product details before submitting a revision.",variant:"destructive"});
+      setSaving(false);
+      return;
+    }
     if (approvedEdit && detailChanged && !submit) {
       toast({title:"Review required",description:"Submit product detail changes for admin review. The approved listing will remain unchanged until approval.",variant:"destructive"});
       setSaving(false);
