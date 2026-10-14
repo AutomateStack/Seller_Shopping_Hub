@@ -9,7 +9,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, ImagePlus, Loader2, Package, Plus, Send, Trash2, AlertTriangle, Boxes, CircleAlert, Save } from "lucide-react";
+import { ArrowLeft, ImagePlus, Loader2, Package, Plus, Send, Trash2, AlertTriangle, Boxes, CircleAlert, Save, Pause, Play, Archive } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
 import { SellerPortalLayout } from "@/components/seller/SellerPortalLayout";
 
@@ -131,6 +131,28 @@ export default function SellerProducts() {
     setSavingStockId(null);
   }
 
+  async function changeListingStatus(product:Product, action:"pause"|"resume"|"archive") {
+    const messages = {
+      pause: "Pause " + product.title + "? Shoppers will no longer be able to buy it. Existing orders will remain unchanged.",
+      resume: "Resume " + product.title + "? It will be visible to shoppers again if it has stock.",
+      archive: "Archive " + product.title + "? This hides it from shoppers and keeps its order history. Archived listings cannot be resumed."
+    };
+    if (!window.confirm(messages[action])) return;
+    const {data,error:statusError} = await db.rpc("manage_seller_product_listing",{p_product_id:product.id,p_action:action});
+    if (statusError) {
+      toast({title:"Could not update listing",description:statusError.message,variant:"destructive"});
+      return;
+    }
+    const nextStatus = typeof data === "string" ? data : data?.status;
+    if (!nextStatus) {
+      toast({title:"Could not confirm listing status",description:"Refresh your products and check the current status.",variant:"destructive"});
+      await load();
+      return;
+    }
+    setProducts(prev=>prev.map(p=>p.id===product.id?{...p,status:nextStatus}:p));
+    toast({title:action==="pause"?"Listing paused":action==="resume"?"Listing resumed":"Listing archived",description:action==="archive"?"The listing is hidden; existing order records are preserved.":"Your listing status has been updated."});
+  }
+
   async function submitDraft(product:Product) {
     const {error:updateError} = await db.schema("catalog").from("products").update({status:"pending_review"}).eq("id",product.id);
     if (updateError) toast({title:"Could not submit product",description:updateError.message,variant:"destructive"});
@@ -178,7 +200,14 @@ export default function SellerProducts() {
       <section className="space-y-3"><div><h2 className="text-xl font-bold">Your listings ({products.length})</h2><p className="text-sm text-muted-foreground">Only your own products are shown here.</p></div>
         {products.length===0?<Card className="border-dashed"><CardContent className="py-10 text-center"><ImagePlus className="mx-auto h-8 w-8 text-muted-foreground"/><p className="mt-2 font-medium">No products yet</p><p className="text-sm text-muted-foreground">Create your first listing above.</p></CardContent></Card>:products.map(p=><Card key={p.id}><CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-start">
           {p.image_urls?.[0]?<img src={p.image_urls[0]} alt={p.title} className="h-24 w-24 rounded-lg border object-cover"/>:<div className="flex h-24 w-24 items-center justify-center rounded-lg bg-muted"><Package className="h-8 w-8 text-muted-foreground"/></div>}
-          <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold">{p.title}</h3><Badge variant={p.status==="approved"?"default":p.status==="rejected"?"destructive":"secondary"}>{pretty(p.status)}</Badge></div><p className="text-sm text-muted-foreground">{p.category}{p.brand? ` · ${p.brand}`:""}{p.sku? ` · SKU ${p.sku}`:""}</p><p className="mt-1 font-semibold">₹{Number(p.price).toFixed(2)}{p.mrp? <span className="ml-2 text-sm font-normal text-muted-foreground line-through">₹{Number(p.mrp).toFixed(2)}</span>:null}</p><div className="mt-2 flex flex-wrap items-center gap-2"><span className="text-sm text-muted-foreground">Available stock: {p.stock_quantity}</span>{p.status === "approved" && p.stock_quantity === 0 && <Badge variant="destructive">Out of stock</Badge>}{p.status === "approved" && p.stock_quantity > 0 && p.stock_quantity <= 5 && <Badge variant="secondary" className="border-amber-500/40 text-amber-700">Low stock</Badge>}</div>
+          <div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><h3 className="font-semibold">{p.title}</h3><Badge variant={p.status==="approved"?"default":p.status==="rejected"?"destructive":p.status==="paused"?"outline":"secondary"}>{pretty(p.status)}</Badge></div><p className="text-sm text-muted-foreground">{p.category}{p.brand? ` · ${p.brand}`:""}{p.sku? ` · SKU ${p.sku}`:""}</p><p className="mt-1 font-semibold">₹{Number(p.price).toFixed(2)}{p.mrp? <span className="ml-2 text-sm font-normal text-muted-foreground line-through">₹{Number(p.mrp).toFixed(2)}</span>:null}</p><div className="mt-2 flex flex-wrap items-center gap-2"><span className="text-sm text-muted-foreground">Available stock: {p.stock_quantity}</span>{p.status === "approved" && p.stock_quantity === 0 && <Badge variant="destructive">Out of stock</Badge>}{p.status === "approved" && p.stock_quantity > 0 && p.stock_quantity <= 5 && <Badge variant="secondary" className="border-amber-500/40 text-amber-700">Low stock</Badge>}</div>
+          {p.status==="paused"&&<p className="mt-2 text-sm text-amber-700">Paused — hidden from shoppers. Existing orders are unaffected.</p>}
+          {p.status==="archived"&&<p className="mt-2 text-sm text-muted-foreground">Archived — hidden from shoppers. Order history is preserved.</p>}
+          {(p.status==="approved"||p.status==="paused")&&<div className="mt-3 flex flex-wrap gap-2">
+            {p.status==="approved"&&<Button size="sm" variant="outline" onClick={()=>void changeListingStatus(p,"pause")}><Pause className="mr-2 h-4 w-4"/>Pause listing</Button>}
+            {p.status==="paused"&&<Button size="sm" onClick={()=>void changeListingStatus(p,"resume")} disabled={p.stock_quantity<1}><Play className="mr-2 h-4 w-4"/>Resume listing</Button>}
+            <Button size="sm" variant="outline" onClick={()=>void changeListingStatus(p,"archive")}><Archive className="mr-2 h-4 w-4"/>Archive</Button>
+          </div>}
           {p.status === "approved" && <div className="mt-3 flex flex-wrap items-end gap-2 rounded-lg border bg-muted/30 p-3"><div className="space-y-1"><Label htmlFor={`stock-${p.id}`}>Update available stock</Label><Input id={`stock-${p.id}`} className="w-36" type="number" min="0" max="1000000" step="1" value={stockDrafts[p.id] ?? String(p.stock_quantity)} onChange={e=>setStockDrafts(prev=>({...prev,[p.id]:e.target.value}))} /></div><Button size="sm" onClick={()=>void saveStock(p)} disabled={savingStockId===p.id || Number(stockDrafts[p.id] ?? p.stock_quantity)===p.stock_quantity}><Save className="mr-2 h-4 w-4"/>{savingStockId===p.id?"Saving…":"Save stock"}</Button><p className="basis-full text-xs text-muted-foreground">Updates inventory only; product approval and listing details stay unchanged.</p><details className="mt-3 rounded-lg border p-3"><summary className="cursor-pointer text-sm font-medium">Stock movement history ({(inventoryHistory[p.id]||[]).length})</summary><div className="mt-3 space-y-2">{(inventoryHistory[p.id]||[]).map((m:any)=><div key={m.id} className="flex justify-between gap-3 border-b pb-2 text-sm"><div><p className="font-medium">{m.movement_type==="manual_adjustment"?"Manual adjustment":m.movement_type==="order_deduction"?"Order deduction":m.movement_type==="order_cancellation_restore"?"Cancellation restore":m.movement_type==="return_restock"?"Return restock":m.movement_type==="initial_stock"?"Initial stock":"Stock change"}</p><p className="text-xs text-muted-foreground">{new Date(m.created_at).toLocaleString()}</p>{m.source_order_id&&<p className="text-xs text-muted-foreground">Order {m.source_order_id}</p>}{m.note&&<p className="text-xs text-muted-foreground">{m.note}</p>}</div><div className="text-right"><p className="font-semibold">{m.quantity_delta>0?"+":""}{m.quantity_delta} units</p><p className="text-xs text-muted-foreground">{m.quantity_before} → {m.quantity_after}</p></div></div>)}{!(inventoryHistory[p.id]||[]).length&&<p className="text-sm text-muted-foreground">No recorded stock changes yet.</p>}</div></details></div>}
           {(p.status==="draft"||p.status==="rejected"||p.status==="changes_requested")&&<div className="flex flex-wrap gap-2"><Button variant="outline" onClick={()=>editProduct(p)}><Package className="mr-2 h-4 w-4"/>Edit product</Button><Button variant="outline" onClick={()=>void submitDraft(p)}><Send className="mr-2 h-4 w-4"/>Submit for review</Button></div>}
           </div>
