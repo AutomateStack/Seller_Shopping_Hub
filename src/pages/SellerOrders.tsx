@@ -92,7 +92,46 @@ export default function SellerOrders() {
       <Card><CardContent className="flex items-center gap-3 p-4"><div className="rounded-lg bg-amber-500/10 p-2 text-amber-600"><Clock3 className="h-5 w-5"/></div><div><p className="text-sm text-muted-foreground">Awaiting action</p><p className="text-2xl font-bold">{orders.filter(o=>["placed","confirmed","processing","shipped"].includes(o.status)).length}</p></div></CardContent></Card>
       <Card><CardContent className="flex items-center gap-3 p-4"><div className="rounded-lg bg-emerald-500/10 p-2 text-emerald-600"><Banknote className="h-5 w-5"/></div><div><p className="text-sm text-muted-foreground">Payment outstanding</p><p className="text-2xl font-bold">₹{pendingPayment.toFixed(2)}</p></div></CardContent></Card>
     </div>
-    {returnRequests.some((r:any)=>r.status==="requested") && <Card><CardHeader><CardTitle>Return requests</CardTitle></CardHeader><CardContent className="space-y-3">{returnRequests.filter((r:any)=>r.status==="requested").map((r:any)=><div key={r.id} className="rounded-lg border p-3"><div className="flex flex-wrap items-start justify-between gap-3"><div><p className="font-semibold">{r.marketplace_orders?.order_number || "Order"} · ₹{Number(r.marketplace_orders?.total_amount||0).toFixed(2)}</p><p className="text-sm text-muted-foreground">{r.marketplace_orders?.shipping_name} · {new Date(r.created_at).toLocaleString()}</p><p className="mt-2 text-sm">{r.reason}</p></div><div className="flex gap-2"><Button size="sm" onClick={()=>{setReturnReviewDraft({id:r.id,status:"approved"});setReturnReviewNote("");}}>Approve return</Button><Button size="sm" variant="outline" onClick={()=>{setReturnReviewDraft({id:r.id,status:"rejected"});setReturnReviewNote("");}}>Reject</Button></div>{returnReviewDraft?.id===r.id&&<div className="mt-3 w-full space-y-2 rounded-md border bg-muted/20 p-3"><p className="text-sm font-medium">{returnReviewDraft.status==="approved"?"Approve return request":"Reject return request"}</p><p className="text-xs text-muted-foreground">{returnReviewDraft.status==="approved"?"Optional note shown to the buyer.":"Please explain why this request is being rejected."}</p><Textarea rows={2} value={returnReviewNote} onChange={e=>setReturnReviewNote(e.target.value)} placeholder={returnReviewDraft.status==="approved"?"Optional note for the buyer…":"Reason for rejection…"} /><div className="flex gap-2"><Button size="sm" disabled={updating===r.order_id||(returnReviewDraft.status==="rejected"&&returnReviewNote.trim().length<5)} onClick={async()=>{const draft=returnReviewDraft;setUpdating(r.order_id);const {error}=await db.rpc("review_marketplace_return",{p_request_id:r.id,p_status:draft.status,p_note:returnReviewNote.trim()||null});setUpdating("");if(error){setError(error.message);return;}setReturnReviewDraft(null);setReturnReviewNote("");await load(sellerId);}}>{updating===r.order_id?"Saving…":"Confirm "+returnReviewDraft.status}</Button><Button size="sm" variant="ghost" onClick={()=>setReturnReviewDraft(null)}>Cancel</Button></div>}</div></div>)}</CardContent></Card>}
+    {returnRequests.some((r:any)=>r.status==="requested") && (
+      <Card>
+        <CardHeader><CardTitle>Return requests</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          {returnRequests.filter((r:any)=>r.status==="requested").map((r:any)=>(
+            <div key={r.id} className="rounded-lg border p-3 space-y-3">
+              <div>
+                <p className="font-semibold">{r.marketplace_orders?.order_number || "Order"} · ₹{Number(r.marketplace_orders?.total_amount||0).toFixed(2)}</p>
+                <p className="text-sm text-muted-foreground">{r.marketplace_orders?.shipping_name} · {new Date(r.created_at).toLocaleString()}</p>
+                <p className="mt-2 text-sm">{r.reason}</p>
+              </div>
+              {returnReviewDraft?.id===r.id ? (
+                <div className="space-y-2 rounded-md border bg-muted/20 p-3">
+                  <p className="text-sm font-medium">{returnReviewDraft.status==="approved"?"Approve return request":"Reject return request"}</p>
+                  <p className="text-xs text-muted-foreground">{returnReviewDraft.status==="approved"?"Optional note for the buyer.":"Please explain why this request is being rejected."}</p>
+                  <Textarea rows={2} value={returnReviewNote} onChange={(e)=>setReturnReviewNote(e.target.value)} placeholder={returnReviewDraft.status==="approved"?"Optional note…":"Reason for rejection…"} />
+                  <div className="flex gap-2">
+                    <Button size="sm" disabled={updating===r.order_id || (returnReviewDraft.status==="rejected" && returnReviewNote.trim().length<5)} onClick={async()=>{
+                      const draft=returnReviewDraft;
+                      if(!draft) return;
+                      setUpdating(r.order_id);
+                      const {error}=await db.rpc("review_marketplace_return",{p_request_id:r.id,p_status:draft.status,p_note:returnReviewNote.trim()||null});
+                      setUpdating("");
+                      if(error){setError(error.message);return;}
+                      setReturnReviewDraft(null);setReturnReviewNote("");await load(sellerId);
+                    }}>{updating===r.order_id?"Saving…":"Confirm decision"}</Button>
+                    <Button size="sm" variant="ghost" onClick={()=>setReturnReviewDraft(null)}>Cancel</Button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2">
+                  <Button size="sm" onClick={()=>{setReturnReviewDraft({id:r.id,status:"approved"});setReturnReviewNote("");}}>Approve return</Button>
+                  <Button size="sm" variant="outline" onClick={()=>{setReturnReviewDraft({id:r.id,status:"rejected"});setReturnReviewNote("");}}>Reject</Button>
+                </div>
+              )}
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    )}
     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between"><div className="flex flex-wrap gap-2" role="group" aria-label="Order date range">{[{id:"7d",label:"Last 7 days"},{id:"30d",label:"Last 30 days"},{id:"all",label:"All time"}].map(p=><Button key={p.id} variant={period===p.id?"default":"outline"} size="sm" onClick={()=>setPeriod(p.id as "7d"|"30d"|"all")}>{p.label}</Button>)}</div>
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
       <div className="flex flex-wrap gap-2">{tabs.map(t=><Button key={t.id} variant={tab===t.id?"default":"outline"} size="sm" onClick={()=>setTab(t.id)}>{t.label}<span className="ml-2 rounded-full bg-background/20 px-1.5 text-xs">{t.count}</span></Button>)}</div>
