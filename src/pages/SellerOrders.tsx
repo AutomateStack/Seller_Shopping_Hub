@@ -41,7 +41,7 @@ export default function SellerOrders() {
       .select("id,order_number,status,payment_method,payment_status,refund_status,refund_amount,refunded_at,cod_collected_at,total_amount,created_at,shipping_name,shipping_phone,shipping_address,shipping_city,shipping_state,shipping_postal_code,marketplace_order_items(id,product_title,quantity,unit_price,line_total,image_url),marketplace_order_history(event_type,old_value,new_value,changed_at)")
       .eq("seller_id", id).order("created_at", { ascending: false }).limit(100);
     if (error) setError(error.message); else setOrders(data || []);
-    const { data: requests, error: requestError } = await db.schema("orders").from("marketplace_return_requests").select("id,order_id,buyer_id,reason,status,seller_note,created_at,marketplace_orders(order_number,total_amount,status,shipping_name)").eq("seller_id", id).order("created_at", { ascending: false });
+    const { data: requests, error: requestError } = await db.schema("orders").from("marketplace_return_requests").select("id,order_id,buyer_id,reason,status,seller_note,created_at,restocked_at,marketplace_orders(order_number,total_amount,status,shipping_name)").eq("seller_id", id).order("created_at", { ascending: false });
     if (requestError) setError(requestError.message); else setReturnRequests(requests || []);
     setLoading(false);
   };
@@ -129,6 +129,32 @@ export default function SellerOrders() {
                   <Button size="sm" variant="outline" onClick={()=>{setReturnReviewDraft({id:r.id,status:"rejected"});setReturnReviewNote("");}}>Reject</Button>
                 </div>
               )}
+            </div>
+          ))}
+        </CardContent>
+      </Card>
+    )}
+    {returnRequests.some((r:any)=>r.status==="approved"&&!r.restocked_at) && (
+      <Card>
+        <CardHeader><CardTitle>Approved returns awaiting inspection</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          {returnRequests.filter((r:any)=>r.status==="approved"&&!r.restocked_at).map((r:any)=>(
+            <div key={r.id} className="flex flex-col gap-3 rounded-lg border p-3 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="font-semibold">{r.marketplace_orders?.order_number || "Order"} · {r.marketplace_orders?.shipping_name || "Buyer"}</p>
+                <p className="text-sm text-muted-foreground">Return approved · {new Date(r.created_at).toLocaleString()}</p>
+                <p className="mt-1 text-sm">{r.reason}</p>
+                <p className="mt-1 text-xs text-muted-foreground">Confirm the item has physically arrived and passed inspection before restocking.</p>
+              </div>
+              <Button size="sm" disabled={updating===r.order_id} onClick={async()=>{
+                const confirmed=window.confirm("Confirm the returned item has been received and inspected? This will add the ordered quantity back to inventory once.");
+                if(!confirmed)return;
+                setUpdating(r.order_id);setError("");
+                const {error}=await db.rpc("restock_marketplace_return",{p_request_id:r.id});
+                if(error)setError(error.message);
+                else { await load(sellerId); }
+                setUpdating("");
+              }}>{updating===r.order_id?<Loader2 className="mr-2 h-4 w-4 animate-spin"/>:<Package className="mr-2 h-4 w-4"/>}Mark received & restock</Button>
             </div>
           ))}
         </CardContent>
