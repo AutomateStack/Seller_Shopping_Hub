@@ -76,6 +76,9 @@ begin
 
   select coalesce(sum(r.amount),0) into v_prior_refunds
   from orders.marketplace_cod_refunds r where r.order_id = p_order_id;
+  if v_prior_refunds = 0 and v_order.refund_status = 'refunded' then
+    raise exception 'This order has a legacy refunded status without payout ledger entries. Reconcile the previous payout before recording another refund.';
+  end if;
   v_total_refunds := v_prior_refunds + p_amount;
   if v_total_refunds > v_order.total_amount then
     raise exception 'Refund exceeds the remaining refundable amount of %', (v_order.total_amount - v_prior_refunds);
@@ -88,7 +91,8 @@ begin
      trim(p_transaction_reference), nullif(trim(coalesce(p_note,'')),''), auth.uid());
 
   update orders.marketplace_orders
-  set refund_status = case when v_total_refunds >= total_amount then 'refunded' else 'refunded' end,
+  set refund_status = 'refunded',
+      payment_status = case when v_total_refunds >= total_amount then 'refunded' else 'paid' end,
       refund_amount = v_total_refunds,
       refunded_at = now(),
       updated_at = now()
