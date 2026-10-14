@@ -26,7 +26,7 @@ export default function SellerOrders() {
   const [cancelTarget, setCancelTarget] = useState<any | null>(null);
   const load = async (id: string) => {
     const { data, error } = await db.schema("orders").from("marketplace_orders")
-      .select("id,order_number,status,payment_method,payment_status,refund_status,refund_amount,refunded_at,cod_collected_at,total_amount,created_at,shipping_name,shipping_phone,shipping_address,shipping_city,shipping_state,shipping_postal_code,marketplace_order_items(id,product_title,quantity,unit_price,line_total,image_url)")
+      .select("id,order_number,status,payment_method,payment_status,refund_status,refund_amount,refunded_at,cod_collected_at,total_amount,created_at,shipping_name,shipping_phone,shipping_address,shipping_city,shipping_state,shipping_postal_code,marketplace_order_items(id,product_title,quantity,unit_price,line_total,image_url),marketplace_order_history(event_type,old_value,new_value,changed_at)")
       .eq("seller_id", id).order("created_at", { ascending: false }).limit(100);
     if (error) setError(error.message); else setOrders(data || []);
     setLoading(false);
