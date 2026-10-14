@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, ImagePlus, Loader2, Package, Plus, Send, Trash2, AlertTriangle, Boxes, CircleAlert, Save, Pause, Play, Archive } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
 import { SellerPortalLayout } from "@/components/seller/SellerPortalLayout";
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const db = supabase as any;
 type Product = { id:string; title:string; description:string; category:string; brand:string; sku:string|null; price:number; mrp:number|null; stock_quantity:number; image_urls:string[]; status:string; created_at:string };
@@ -36,6 +37,8 @@ export default function SellerProducts() {
   const [stockDrafts,setStockDrafts] = useState<Record<string,string>>({});
   const [savingStockId,setSavingStockId] = useState<string | null>(null);
   const [inventoryHistory,setInventoryHistory] = useState<Record<string,any[]>>({});
+  const [confirmAction,setConfirmAction] = useState<{product:Product;action:"pause"|"resume"|"archive"}|null>(null);
+  const [statusBusy,setStatusBusy] = useState(false);
 
   async function load() {
     setLoading(true); setError("");
@@ -87,8 +90,20 @@ export default function SellerProducts() {
       toast({title:"Check MRP",description:"MRP must be greater than or equal to the selling price.",variant:"destructive"}); return;
     }
     setSaving(true);
-    const payload = {seller_id:sellerId,title:form.title.trim(),description:form.description.trim(),category:form.category.trim(),brand:form.brand.trim(),sku:form.sku.trim()||null,price,mrp,stock_quantity:stock,image_urls:images,status:submit?"pending_review":"draft"};
-    const query = editingId ? db.schema("catalog").from("products").update(payload).eq("id",editingId).eq("seller_id",sellerId) : db.schema("catalog").from("products").insert(payload);
+    const payload = {title:form.title.trim(),description:form.description.trim(),category:form.category.trim(),brand:form.brand.trim(),sku:form.sku.trim()||null,price,mrp,image_urls:images};
+    const editingProduct = editingId ? products.find(p=>p.id===editingId) : null;
+    const majorChanged = !!editingProduct && (
+      editingProduct.title !== payload.title || editingProduct.category !== payload.category ||
+      Number(editingProduct.price) !== price ||
+      (editingProduct.mrp == null ? null : Number(editingProduct.mrp)) !== mrp ||
+      JSON.stringify(editingProduct.image_urls||[]) !== JSON.stringify(images)
+    );
+    const approvedEdit = !!editingProduct && ["approved","paused"].includes(editingProduct.status);
+    const query = approvedEdit
+      ? db.rpc("update_seller_marketplace_product_details",{p_product_id:editingId,p_title:payload.title,p_description:payload.description,p_category:payload.category,p_brand:payload.brand,p_sku:payload.sku,p_price:price,p_mrp:mrp,p_image_urls:images})
+      : editingId
+        ? db.schema("catalog").from("products").update({...payload,stock_quantity:stock,status:submit?"pending_review":editingProduct?.status||"draft"}).eq("id",editingId).eq("seller_id",sellerId)
+        : db.schema("catalog").from("products").insert({...payload,seller_id:sellerId,stock_quantity:stock,status:submit?"pending_review":"draft"});
     const {data,error:saveError} = await query.select("*").single();
     if (saveError) {
       toast({title:"Could not save product",description:saveError.message,variant:"destructive"});
@@ -96,7 +111,7 @@ export default function SellerProducts() {
       const saved = data as Product;
       setProducts(prev=>editingId ? prev.map(p=>p.id===saved.id?saved:p) : [saved,...prev]);
       setForm(emptyForm); setImages([]); setEditingId(null); setFormOpen(false);
-      toast({title:submit?"Product submitted for review":editingId?"Product updated":"Draft saved",description:submit?"Your updated product has been submitted for admin review.":"You can edit and submit it later."});
+      toast({title:submit?"Product submitted for review":editingId?"Product updated":"Draft saved",description:submit?"Your updated product has been submitted for admin review.":editingId?(majorChanged?"Major changes submitted for admin review.":"Minor details saved without a new review."):"You can edit and submit it later."});
     }
     setSaving(false);
   }
@@ -132,25 +147,20 @@ export default function SellerProducts() {
   }
 
   async function changeListingStatus(product:Product, action:"pause"|"resume"|"archive") {
-    const messages = {
-      pause: "Pause " + product.title + "? Shoppers will no longer be able to buy it. Existing orders will remain unchanged.",
-      resume: "Resume " + product.title + "? It will be visible to shoppers again if it has stock.",
-      archive: "Archive " + product.title + "? This hides it from shoppers and keeps its order history. Archived listings cannot be resumed."
-    };
-    if (!window.confirm(messages[action])) return;
+    setStatusBusy(true);
     const {data,error:statusError} = await db.rpc("manage_seller_product_listing",{p_product_id:product.id,p_action:action});
     if (statusError) {
       toast({title:"Could not update listing",description:statusError.message,variant:"destructive"});
-      return;
+      setStatusBusy(false); setConfirmAction(null); return;
     }
     const nextStatus = typeof data === "string" ? data : data?.status;
     if (!nextStatus) {
       toast({title:"Could not confirm listing status",description:"Refresh your products and check the current status.",variant:"destructive"});
-      await load();
-      return;
+      await load(); setStatusBusy(false); setConfirmAction(null); return;
     }
     setProducts(prev=>prev.map(p=>p.id===product.id?{...p,status:nextStatus}:p));
     toast({title:action==="pause"?"Listing paused":action==="resume"?"Listing resumed":"Listing archived",description:action==="archive"?"The listing is hidden; existing order records are preserved.":"Your listing status has been updated."});
+    setStatusBusy(false); setConfirmAction(null);
   }
 
   async function submitDraft(product:Product) {
@@ -165,6 +175,22 @@ export default function SellerProducts() {
   if (loading) return <div className="min-h-screen flex items-center justify-center"><Loader2 className="h-8 w-8 animate-spin text-primary" /></div>;
   return <SellerPortalLayout><main className="min-h-screen bg-background">
     <SEOHead title="My Products | Seller Shopping Hub" description="Manage your seller product listings." noindex />
+    <Dialog open={!!confirmAction} onOpenChange={open=>{if(!open&&!statusBusy)setConfirmAction(null);}}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>{confirmAction?.action==="pause"?"Pause listing?":confirmAction?.action==="resume"?"Resume listing?":"Archive listing?"}</DialogTitle>
+          <DialogDescription>
+            {confirmAction?.action==="pause" ? "Shoppers will no longer be able to buy " + confirmAction.product.title + ". Existing orders will remain unchanged." :
+             confirmAction?.action==="resume" ? "Make " + confirmAction.product.title + " available to shoppers again. It must have stock." :
+             "Hide " + (confirmAction?.product.title||"this listing") + " from shoppers. Existing order history is preserved, and archiving cannot be undone."}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button variant="outline" disabled={statusBusy} onClick={()=>setConfirmAction(null)}>Cancel</Button>
+          <Button variant={confirmAction?.action==="archive"?"destructive":"default"} disabled={statusBusy} onClick={()=>confirmAction&&void changeListingStatus(confirmAction.product,confirmAction.action)}>{statusBusy?"Please wait…":confirmAction?.action==="pause"?"Pause listing":confirmAction?.action==="resume"?"Resume listing":"Archive listing"}</Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
     <div className="container mx-auto max-w-6xl space-y-6 px-4 py-8">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-3"><div className="rounded-xl bg-primary/10 p-3"><Package className="h-7 w-7 text-primary"/></div><div><p className="text-sm text-muted-foreground">SELLER PORTAL</p><h1 className="text-3xl font-bold">My Products</h1><p className="text-muted-foreground">Create listings and submit them for admin approval.</p></div></div>
@@ -178,7 +204,7 @@ export default function SellerProducts() {
       {(lowStockProducts.length > 0 || outOfStockProducts.length > 0) && <Card className="border-amber-500/40"><CardContent className="flex gap-3 p-4"><AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600"/><div><p className="font-semibold">Inventory needs attention</p><p className="text-sm text-muted-foreground">{outOfStockProducts.length > 0 ? `${outOfStockProducts.length} approved product(s) are out of stock. ` : ""}{lowStockProducts.length > 0 ? `${lowStockProducts.length} approved product(s) have 5 or fewer units remaining.` : ""} Edit the listing to update stock after replenishment.</p></div></CardContent></Card>}
       {error && <Card className="border-destructive"><CardContent className="p-4 text-sm text-destructive">{error}</CardContent></Card>}
       {formOpen ? <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5"/> {editingId?"Edit product":"Add a product"}</CardTitle><CardDescription>Products remain unpublished until an admin approves them. Use accurate product details and images you have rights to use.</CardDescription></CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5"/> {editingId?"Edit product":"Add a product"}</CardTitle><CardDescription>{editingId ? "Minor changes to description, brand, or SKU save without review. Changes to title, category, price, MRP, or images require admin review. Stock is managed separately." : "Products remain unpublished until an admin approves them. Use accurate product details and images you have rights to use."}</CardDescription></CardHeader>
         <CardContent className="space-y-5">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2"><Label htmlFor="product-title">Product name *</Label><Input id="product-title" maxLength={160} value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="e.g. Natural Coir Scrubber Pack of 5"/></div>
@@ -204,9 +230,10 @@ export default function SellerProducts() {
           {p.status==="paused"&&<p className="mt-2 text-sm text-amber-700">Paused — hidden from shoppers. Existing orders are unaffected.</p>}
           {p.status==="archived"&&<p className="mt-2 text-sm text-muted-foreground">Archived — hidden from shoppers. Order history is preserved.</p>}
           {(p.status==="approved"||p.status==="paused")&&<div className="mt-3 flex flex-wrap gap-2">
-            {p.status==="approved"&&<Button size="sm" variant="outline" onClick={()=>void changeListingStatus(p,"pause")}><Pause className="mr-2 h-4 w-4"/>Pause listing</Button>}
-            {p.status==="paused"&&<Button size="sm" onClick={()=>void changeListingStatus(p,"resume")} disabled={p.stock_quantity<1}><Play className="mr-2 h-4 w-4"/>Resume listing</Button>}
-            <Button size="sm" variant="outline" onClick={()=>void changeListingStatus(p,"archive")}><Archive className="mr-2 h-4 w-4"/>Archive</Button>
+            <Button size="sm" variant="outline" onClick={()=>editProduct(p)}><Package className="mr-2 h-4 w-4"/>Edit details</Button>
+            {p.status==="approved"&&<Button size="sm" variant="outline" onClick={()=>setConfirmAction({product:p,action:"pause"})><Pause className="mr-2 h-4 w-4"/>Pause listing</Button>}
+            {p.status==="paused"&&<Button size="sm" onClick={()=>setConfirmAction({product:p,action:"resume"}) disabled={p.stock_quantity<1}><Play className="mr-2 h-4 w-4"/>Resume listing</Button>}
+            <Button size="sm" variant="outline" onClick={()=>setConfirmAction({product:p,action:"archive"})><Archive className="mr-2 h-4 w-4"/>Archive</Button>
           </div>}
           {p.status === "approved" && <div className="mt-3 flex flex-wrap items-end gap-2 rounded-lg border bg-muted/30 p-3"><div className="space-y-1"><Label htmlFor={`stock-${p.id}`}>Update available stock</Label><Input id={`stock-${p.id}`} className="w-36" type="number" min="0" max="1000000" step="1" value={stockDrafts[p.id] ?? String(p.stock_quantity)} onChange={e=>setStockDrafts(prev=>({...prev,[p.id]:e.target.value}))} /></div><Button size="sm" onClick={()=>void saveStock(p)} disabled={savingStockId===p.id || Number(stockDrafts[p.id] ?? p.stock_quantity)===p.stock_quantity}><Save className="mr-2 h-4 w-4"/>{savingStockId===p.id?"Saving…":"Save stock"}</Button><p className="basis-full text-xs text-muted-foreground">Updates inventory only; product approval and listing details stay unchanged.</p><details className="mt-3 rounded-lg border p-3"><summary className="cursor-pointer text-sm font-medium">Stock movement history ({(inventoryHistory[p.id]||[]).length})</summary><div className="mt-3 space-y-2">{(inventoryHistory[p.id]||[]).map((m:any)=><div key={m.id} className="flex justify-between gap-3 border-b pb-2 text-sm"><div><p className="font-medium">{m.movement_type==="manual_adjustment"?"Manual adjustment":m.movement_type==="order_deduction"?"Order deduction":m.movement_type==="order_cancellation_restore"?"Cancellation restore":m.movement_type==="return_restock"?"Return restock":m.movement_type==="initial_stock"?"Initial stock":"Stock change"}</p><p className="text-xs text-muted-foreground">{new Date(m.created_at).toLocaleString()}</p>{m.source_order_id&&<p className="text-xs text-muted-foreground">Order {m.source_order_id}</p>}{m.note&&<p className="text-xs text-muted-foreground">{m.note}</p>}</div><div className="text-right"><p className="font-semibold">{m.quantity_delta>0?"+":""}{m.quantity_delta} units</p><p className="text-xs text-muted-foreground">{m.quantity_before} → {m.quantity_after}</p></div></div>)}{!(inventoryHistory[p.id]||[]).length&&<p className="text-sm text-muted-foreground">No recorded stock changes yet.</p>}</div></details></div>}
           {(p.status==="draft"||p.status==="rejected"||p.status==="changes_requested")&&<div className="flex flex-wrap gap-2"><Button variant="outline" onClick={()=>editProduct(p)}><Package className="mr-2 h-4 w-4"/>Edit product</Button><Button variant="outline" onClick={()=>void submitDraft(p)}><Send className="mr-2 h-4 w-4"/>Submit for review</Button></div>}
