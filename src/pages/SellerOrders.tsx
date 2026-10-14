@@ -147,8 +147,6 @@ export default function SellerOrders() {
                 <p className="mt-1 text-xs text-muted-foreground">Confirm the item has physically arrived and passed inspection before restocking.</p>
               </div>
               <Button size="sm" disabled={updating===r.order_id} onClick={async()=>{
-                const confirmed=window.confirm("Confirm the returned item has been received and inspected? This will add the ordered quantity back to inventory once.");
-                if(!confirmed)return;
                 setUpdating(r.order_id);setError("");
                 const {error}=await db.rpc("restock_marketplace_return",{p_request_id:r.id});
                 if(error)setError(error.message);
