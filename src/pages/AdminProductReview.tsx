@@ -43,7 +43,7 @@ export default function AdminProductReview() {
       if(!rows.length) return [];
       const revisionIds=rows.map((r:any)=>r.id), productIds=[...new Set(rows.map((r:any)=>r.product_id))], sellerIds=[...new Set(rows.map((r:any)=>r.seller_id))];
       const [{data:events,error:eventError},{data:productsForRevision,error:productError},{data:sellers,error:sellerError}]=await Promise.all([
-        db.schema("audit").from("product_review_events").select("id,revision_id,actor_id,actor_role,action,previous_status,new_status,comment,created_at").in("revision_id",revisionIds).order("created_at",{ascending:false}),
+        db.rpc("list_product_review_events",{p_revision_ids:revisionIds}),
         db.schema("catalog").from("products").select("id,title,status").in("id",productIds),
         db.schema("seller").from("seller_profiles").select("id,store_name,business_name,contact_name").in("id",sellerIds)
       ]);
