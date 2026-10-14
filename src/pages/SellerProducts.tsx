@@ -42,12 +42,17 @@ export default function SellerProducts() {
   const [expandedProductId,setExpandedProductId] = useState<string|null>(null);
   const [changeSummary,setChangeSummary] = useState("");
   const [reviewConfirmOpen,setReviewConfirmOpen] = useState(false);
+  const [reviewNotifications,setReviewNotifications] = useState<any[]>([]);
+  const [notificationBusy,setNotificationBusy] = useState<string|null>(null);
 
   async function load() {
     setLoading(true); setError("");
     const {data:{session}} = await supabase.auth.getSession();
     if (!session) { navigate("/auth?next=/seller/products",{replace:true}); return; }
     setUserId(session.user.id);
+    const {data:notificationRows,error:notificationError}=await db.schema("seller").from("product_review_notifications")
+      .select("id,title,body,payload,created_at,read_at").eq("user_id",session.user.id).order("created_at",{ascending:false}).limit(20);
+    if(notificationError) setError(notificationError.message); else setReviewNotifications(notificationRows??[]);
     const {data:seller,error:sellerError} = await db.schema("seller").from("seller_profiles").select("id,onboarding_status,account_status").eq("user_id",session.user.id).maybeSingle();
     if (sellerError) { setError(sellerError.message); setLoading(false); return; }
     if (!seller) { navigate("/seller/onboarding",{replace:true}); return; }
@@ -77,6 +82,15 @@ export default function SellerProducts() {
   }
 
   useEffect(()=>{ void load(); },[]);
+
+  async function markNotificationRead(notificationId:string) {
+    setNotificationBusy(notificationId);
+    const {error:readError}=await db.schema("seller").from("product_review_notifications")
+      .update({read_at:new Date().toISOString()}).eq("id",notificationId).is("read_at",null);
+    if(readError) toast({title:"Could not mark notification read",description:readError.message,variant:"destructive"});
+    else setReviewNotifications(prev=>prev.map(n=>n.id===notificationId?{...n,read_at:new Date().toISOString()}:n));
+    setNotificationBusy(null);
+  }
 
   async function uploadImages(event:ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
@@ -262,6 +276,10 @@ export default function SellerProducts() {
         <div className="flex items-center gap-3"><div className="rounded-xl bg-primary/10 p-3"><Package className="h-7 w-7 text-primary"/></div><div><p className="text-sm text-muted-foreground">SELLER PORTAL</p><h1 className="text-3xl font-bold">My Products</h1><p className="text-muted-foreground">Create listings and submit them for admin approval.</p></div></div>
         <Button variant="outline" asChild><Link to="/seller/dashboard"><ArrowLeft className="mr-2 h-4 w-4"/> Seller dashboard</Link></Button>
       </div>
+      {reviewNotifications.length>0&&<section className="space-y-3">
+        <div><h2 className="text-xl font-bold">Review notifications</h2><p className="text-sm text-muted-foreground">Updates from the ShopHub product review team.</p></div>
+        {reviewNotifications.map((n:any)=><Card key={n.id} className={!n.read_at?"border-primary/30 bg-primary/[0.02]":""}><CardContent className="flex flex-wrap items-start justify-between gap-3 p-4"><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><p className="font-semibold">{n.title}</p>{!n.read_at&&<Badge variant="secondary">New</Badge>}</div><p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{n.body}</p><p className="mt-2 text-xs text-muted-foreground">{new Date(n.created_at).toLocaleString()}</p></div>{!n.read_at&&<Button size="sm" variant="outline" disabled={notificationBusy===n.id} onClick={()=>void markNotificationRead(n.id)}>{notificationBusy===n.id?"Saving…":"Mark read"}</Button>}</CardContent></Card>)}
+      </section>}
       <div className="grid gap-3 sm:grid-cols-3">
         <Card><CardContent className="flex items-center gap-3 p-4"><div className="rounded-lg bg-primary/10 p-2 text-primary"><Boxes className="h-5 w-5"/></div><div><p className="text-sm text-muted-foreground">Total listings</p><p className="text-2xl font-bold">{products.length}</p></div></CardContent></Card>
         <Card><CardContent className="flex items-center gap-3 p-4"><div className="rounded-lg bg-amber-500/10 p-2 text-amber-600"><AlertTriangle className="h-5 w-5"/></div><div><p className="text-sm text-muted-foreground">Low stock (1–5)</p><p className="text-2xl font-bold">{lowStockProducts.length}</p></div></CardContent></Card>
