@@ -268,15 +268,18 @@ begin
     raise exception 'A review comment of at least 5 characters is required';
   end if;
 
-  select * into v_revision from catalog.product_revisions
-    where id = p_revision_id for update;
+  -- Lock in the same order as seller submission (product, then revision) to avoid deadlocks.
+  select * into v_revision from catalog.product_revisions where id = p_revision_id;
   if not found then raise exception 'Product revision not found'; end if;
-  if v_revision.review_status <> 'pending_review' then
-    raise exception 'This revision has already been reviewed or superseded';
-  end if;
 
   select * into v_product from catalog.products where id=v_revision.product_id for update;
   if not found then raise exception 'Product not found'; end if;
+
+  select * into v_revision from catalog.product_revisions
+    where id = p_revision_id for update;
+  if not found or v_revision.review_status <> 'pending_review' then
+    raise exception 'This revision has already been reviewed or superseded';
+  end if;
 
   if p_decision = 'approved' then
     update catalog.products
