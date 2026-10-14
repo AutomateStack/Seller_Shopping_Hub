@@ -127,12 +127,6 @@ export default function SellerProducts() {
     setSaving(true);
     const payload = {title:form.title.trim(),description:form.description.trim(),category:form.category.trim(),brand:form.brand.trim(),sku:form.sku.trim()||null,price,mrp,image_urls:images};
     const editingProduct = editingId ? products.find(p=>p.id===editingId) : null;
-    const majorChanged = !!editingProduct && (
-      editingProduct.title !== payload.title || editingProduct.category !== payload.category ||
-      Number(editingProduct.price) !== price ||
-      (editingProduct.mrp == null ? null : Number(editingProduct.mrp)) !== mrp ||
-      JSON.stringify(editingProduct.image_urls||[]) !== JSON.stringify(images)
-    );
     const approvedEdit = !!editingProduct && ["approved","paused"].includes(editingProduct.status);
     const detailChanged = !!editingProduct && (
       editingProduct.title !== payload.title ||
