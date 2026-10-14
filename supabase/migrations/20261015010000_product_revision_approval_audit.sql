@@ -20,7 +20,10 @@ create table if not exists catalog.product_revisions (
   unique (product_id, revision_number)
 );
 
-create unique index if not exists product_revisions_one_pending_per_product_idx\n  on catalog.product_revisions(product_id) where review_status = 'pending_review';\n\ncreate index if not exists product_revisions_product_submitted_idx
+create unique index if not exists product_revisions_one_pending_per_product_idx
+  on catalog.product_revisions(product_id) where review_status = 'pending_review';
+
+create index if not exists product_revisions_product_submitted_idx
   on catalog.product_revisions(product_id, submitted_at desc);
 create index if not exists product_revisions_status_submitted_idx
   on catalog.product_revisions(review_status, submitted_at desc);
@@ -63,7 +66,8 @@ create table if not exists seller.product_review_notifications (
 create index if not exists product_review_notifications_user_created_idx
   on seller.product_review_notifications(user_id, created_at desc);
 
-grant usage on schema catalog, audit, seller to authenticated;\nalter table catalog.product_revisions enable row level security;
+grant usage on schema catalog, audit, seller to authenticated;
+alter table catalog.product_revisions enable row level security;
 alter table audit.product_review_events enable row level security;
 alter table seller.product_review_notifications enable row level security;
 
