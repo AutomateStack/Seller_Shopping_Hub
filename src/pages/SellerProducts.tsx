@@ -102,12 +102,48 @@ export default function SellerProducts() {
       JSON.stringify(editingProduct.image_urls||[]) !== JSON.stringify(images)
     );
     const approvedEdit = !!editingProduct && ["approved","paused"].includes(editingProduct.status);
-    if (approvedEdit && majorChanged && !confirmedSummary) { setReviewConfirmOpen(true); setSaving(false); return; }
-    const query = approvedEdit
-      ? db.rpc("update_seller_marketplace_product_details",{p_product_id:editingId,p_title:payload.title,p_description:payload.description,p_category:payload.category,p_brand:payload.brand,p_sku:payload.sku,p_price:price,p_mrp:mrp,p_image_urls:images,p_change_summary:confirmedSummary||null})
-      : editingId
-        ? db.schema("catalog").from("products").update({...payload,stock_quantity:stock,status:submit?"pending_review":editingProduct?.status||"draft"}).eq("id",editingId).eq("seller_id",sellerId)
-        : db.schema("catalog").from("products").insert({...payload,seller_id:sellerId,stock_quantity:stock,status:submit?"pending_review":"draft"});
+    const detailChanged = !!editingProduct && (
+      editingProduct.title !== payload.title ||
+      (editingProduct.description ?? "") !== payload.description ||
+      editingProduct.category !== payload.category ||
+      (editingProduct.brand ?? "") !== payload.brand ||
+      (editingProduct.sku ?? null) !== payload.sku ||
+      Number(editingProduct.price) !== price ||
+      (editingProduct.mrp == null ? null : Number(editingProduct.mrp)) !== mrp ||
+      JSON.stringify(editingProduct.image_urls||[]) !== JSON.stringify(images)
+    );
+    if (approvedEdit && detailChanged && !submit) {
+      toast({title:"Review required",description:"Submit product detail changes for admin review. The approved listing will remain unchanged until approval.",variant:"destructive"});
+      setSaving(false);
+      return;
+    }
+    if (approvedEdit && detailChanged && submit && !confirmedSummary) {
+      setReviewConfirmOpen(true);
+      setSaving(false);
+      return;
+    }
+
+    if (approvedEdit && detailChanged && submit) {
+      const {error:revisionError} = await db.rpc("submit_seller_product_revision",{
+        p_product_id:editingId,
+        p_proposed_data:payload,
+        p_change_summary:confirmedSummary?.trim()
+      });
+      if (revisionError) {
+        toast({title:"Could not submit revision",description:revisionError.message,variant:"destructive"});
+        setSaving(false);
+        return;
+      }
+      setForm(emptyForm); setImages([]); setEditingId(null); setFormOpen(false); setReviewConfirmOpen(false); setChangeSummary("");
+      await load();
+      toast({title:"Changes submitted for review",description:"Your approved listing remains unchanged until an admin approves this revision."});
+      setSaving(false);
+      return;
+    }
+
+    const query = editingId
+      ? db.schema("catalog").from("products").update({...payload,stock_quantity:stock,status:submit?"pending_review":editingProduct?.status||"draft"}).eq("id",editingId).eq("seller_id",sellerId)
+      : db.schema("catalog").from("products").insert({...payload,seller_id:sellerId,stock_quantity:stock,status:submit?"pending_review":"draft"});
     const {data,error:saveError} = await query.select("*").single();
     if (saveError) {
       toast({title:"Could not save product",description:saveError.message,variant:"destructive"});
@@ -115,7 +151,7 @@ export default function SellerProducts() {
       const saved = data as Product;
       setProducts(prev=>editingId ? prev.map(p=>p.id===saved.id?saved:p) : [saved,...prev]);
       setForm(emptyForm); setImages([]); setEditingId(null); setFormOpen(false); setReviewConfirmOpen(false); setChangeSummary("");
-      toast({title:submit?"Product submitted for review":editingId?"Product updated":"Draft saved",description:submit?"Your updated product has been submitted for admin review.":editingId?(majorChanged?"Major changes submitted for admin review.":"Minor details saved without a new review."):"You can edit and submit it later."});
+      toast({title:submit?"Product submitted for review":editingId?"Product updated":"Draft saved",description:submit?"Your updated product has been submitted for admin review.":editingId?"Product updated.":"You can edit and submit it later."});
     }
     setSaving(false);
   }
@@ -216,7 +252,7 @@ export default function SellerProducts() {
       {(lowStockProducts.length > 0 || outOfStockProducts.length > 0) && <Card className="border-amber-500/40"><CardContent className="flex gap-3 p-4"><AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600"/><div><p className="font-semibold">Inventory needs attention</p><p className="text-sm text-muted-foreground">{outOfStockProducts.length > 0 ? `${outOfStockProducts.length} approved product(s) are out of stock. ` : ""}{lowStockProducts.length > 0 ? `${lowStockProducts.length} approved product(s) have 5 or fewer units remaining.` : ""} Edit the listing to update stock after replenishment.</p></div></CardContent></Card>}
       {error && <Card className="border-destructive"><CardContent className="p-4 text-sm text-destructive">{error}</CardContent></Card>}
       {formOpen ? <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5"/> {editingId?"Edit product":"Add a product"}</CardTitle><CardDescription>{editingId ? "Minor changes to description, brand, or SKU save without review. Changes to title, category, price, MRP, or images require admin review. Stock is managed separately." : "Products remain unpublished until an admin approves them. Use accurate product details and images you have rights to use."}</CardDescription></CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5"/> {editingId?"Edit product":"Add a product"}</CardTitle><CardDescription>{editingId ? "Minor changes to description, brand, or SKU save without review. Changes to product details require admin review. Approved listing data remains live until the revision is approved. Stock is managed separately." : "Products remain unpublished until an admin approves them. Use accurate product details and images you have rights to use."}</CardDescription></CardHeader>
         <CardContent className="space-y-5">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2"><Label htmlFor="product-title">Product name *</Label><Input id="product-title" maxLength={160} value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="e.g. Natural Coir Scrubber Pack of 5"/></div>
@@ -232,7 +268,7 @@ export default function SellerProducts() {
             {images.length>0&&<div className="flex flex-wrap gap-3">{images.map((url,i)=><div key={url} className="relative"><img src={url} alt={`Product image ${i+1}`} className="h-20 w-20 rounded-md border object-cover"/><Button type="button" size="icon" variant="destructive" className="absolute -right-2 -top-2 h-6 w-6" onClick={()=>setImages(prev=>prev.filter(x=>x!==url))} aria-label="Remove image"><Trash2 className="h-3 w-3"/></Button></div>)}</div>}
             <p className="text-xs text-muted-foreground">Images are uploaded privately by seller folder and served from the product image bucket.</p>
           </div>
-          <div className="flex flex-wrap gap-2"><Button onClick={()=>void saveProduct(false)} disabled={saving||uploading}><Plus className="mr-2 h-4 w-4"/>{saving?"Saving…":editingId?"Save changes":"Save draft"}</Button>{!(editingId && products.some(p=>p.id===editingId && ["approved","paused"].includes(p.status)))&&<Button variant="outline" onClick={()=>void saveProduct(true)} disabled={saving||uploading}><Send className="mr-2 h-4 w-4"/>Submit for review</Button>}{editingId&&<Button variant="ghost" onClick={cancelEdit} disabled={saving||uploading}>Cancel edit</Button>}</div>
+          <div className="flex flex-wrap gap-2">{!(editingId && products.some(p=>p.id===editingId && ["approved","paused"].includes(p.status)))&&<Button onClick={()=>void saveProduct(false)} disabled={saving||uploading}><Plus className="mr-2 h-4 w-4"/>{saving?"Saving…":editingId?"Save changes":"Save draft"}</Button>}{editingId && products.some(p=>p.id===editingId && ["approved","paused"].includes(p.status)) ? <Button onClick={()=>void saveProduct(true)} disabled={saving||uploading}><Send className="mr-2 h-4 w-4"/>{saving?"Submitting…":"Save & submit for review"}</Button> : <Button variant="outline" onClick={()=>void saveProduct(true)} disabled={saving||uploading}><Send className="mr-2 h-4 w-4"/>Submit for review</Button>}{editingId&&<Button variant="ghost" onClick={cancelEdit} disabled={saving||uploading}>Cancel edit</Button>}</div>
         </CardContent>
       </Card> : <Button type="button" className="w-full sm:w-auto" onClick={()=>{setEditingId(null);setForm(emptyForm);setImages([]);setFormOpen(true);}}><Plus className="mr-2 h-4 w-4"/> Add a product</Button>}
       <section className="space-y-3"><div><h2 className="text-xl font-bold">Your listings ({products.length})</h2><p className="text-sm text-muted-foreground">Only your own products are shown here.</p></div>
