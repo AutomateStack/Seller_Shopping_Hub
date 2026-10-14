@@ -70,7 +70,7 @@ export default function SellerOrders() {
     const matchesSearch = !term || String(o.order_number || "").toLowerCase().includes(term) || (o.marketplace_order_items || []).some((item: any) => String(item.product_title || "").toLowerCase().includes(term));
     return matchesPeriod && matchesTab && matchesSearch;
   });
-  const pendingPayment = orders.filter(o => o.payment_status !== "paid").reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
+  const pendingPayment = orders.filter(o => o.payment_status !== "paid" && !["cancelled","returned"].includes(o.status)).reduce((sum, o) => sum + Number(o.total_amount || 0), 0);
   const refreshOrders = async () => { if (!sellerId) return; setRefreshing(true); await load(sellerId); setRefreshing(false); };
   const tabs = [{id:"pending",label:"Pending",count:orders.filter(o=>["placed","confirmed"].includes(o.status)).length},{id:"ready",label:"Ready to dispatch",count:orders.filter(o=>o.status==="processing").length},{id:"shipped",label:"Shipped",count:orders.filter(o=>o.status==="shipped").length},{id:"delivered",label:"Delivered",count:orders.filter(o=>o.status==="delivered").length},{id:"returned",label:"Returned",count:orders.filter(o=>o.status==="returned").length},{id:"all",label:"All orders",count:orders.length}];
   return <SellerPortalLayout><main className="min-h-screen bg-background"><SEOHead title="Seller Orders | Seller Shopping Hub" description="Manage seller orders." noindex/><div className="mx-auto max-w-5xl space-y-6 px-4 py-8">
