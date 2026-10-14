@@ -20,7 +20,7 @@ create table if not exists catalog.product_revisions (
   unique (product_id, revision_number)
 );
 
-create index if not exists product_revisions_product_submitted_idx
+create unique index if not exists product_revisions_one_pending_per_product_idx\n  on catalog.product_revisions(product_id) where review_status = 'pending_review';\n\ncreate index if not exists product_revisions_product_submitted_idx
   on catalog.product_revisions(product_id, submitted_at desc);
 create index if not exists product_revisions_status_submitted_idx
   on catalog.product_revisions(review_status, submitted_at desc);
@@ -234,7 +234,7 @@ begin
     (revision_id,product_id,seller_id,actor_id,actor_role,action,previous_status,new_status,comment,changes)
   values
     (v_revision.id,p_product_id,v_product.seller_id,auth.uid(),'seller','submitted',
-     coalesce((select review_status from catalog.product_revisions where id=v_old_pending),'none'),
+     'pending_review',
      'pending_review',btrim(p_change_summary),
      jsonb_build_object('previous_data',v_previous,'proposed_data',v_proposed));
 
