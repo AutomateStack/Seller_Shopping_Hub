@@ -63,7 +63,7 @@ create table if not exists seller.product_review_notifications (
 create index if not exists product_review_notifications_user_created_idx
   on seller.product_review_notifications(user_id, created_at desc);
 
-alter table catalog.product_revisions enable row level security;
+grant usage on schema catalog, audit, seller to authenticated;\nalter table catalog.product_revisions enable row level security;
 alter table audit.product_review_events enable row level security;
 alter table seller.product_review_notifications enable row level security;
 
@@ -177,7 +177,7 @@ begin
   v_price := (p_proposed_data->>'price')::numeric;
   v_mrp := nullif(p_proposed_data->>'mrp','')::numeric;
 
-  if jsonb_typeof(p_proposed_data->'image_urls') <> 'array' then
+  if jsonb_typeof(p_proposed_data->'image_urls') is distinct from 'array' then
     raise exception 'Product images must be provided as an array';
   end if;
   select coalesce(array_agg(value), '{}'::text[]) into v_image_urls
