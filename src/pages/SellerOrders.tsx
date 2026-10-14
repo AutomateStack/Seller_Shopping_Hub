@@ -34,7 +34,10 @@ export default function SellerOrders() {
   const [refundEditorOrder, setRefundEditorOrder] = useState<string|null>(null);
   const [refundAmountDraft, setRefundAmountDraft] = useState("");
   const [refundStatusDraft, setRefundStatusDraft] = useState<"pending"|"refunded">("pending");
-  const [refundConfirmOrder, setRefundConfirmOrder] = useState<any | null>(null);\n  const [refundPayoutMethod, setRefundPayoutMethod] = useState<"upi"|"bank_transfer">("upi");\n  const [refundTransactionReference, setRefundTransactionReference] = useState("");\n  const [refundPayoutNote, setRefundPayoutNote] = useState("");
+  const [refundConfirmOrder, setRefundConfirmOrder] = useState<any | null>(null);
+  const [refundPayoutMethod, setRefundPayoutMethod] = useState<"upi"|"bank_transfer">("upi");
+  const [refundTransactionReference, setRefundTransactionReference] = useState("");
+  const [refundPayoutNote, setRefundPayoutNote] = useState("");
   const selectedOrderHistory = Array.isArray(selectedOrder?.marketplace_order_history) ? selectedOrder.marketplace_order_history : [];
   const selectedOrderStatusHistory = selectedOrderHistory.filter((event: any) => event.event_type === "order_status");
   const load = async (id: string) => {
@@ -74,10 +77,12 @@ export default function SellerOrders() {
   };
   const saveRefund = async (order: any) => {
     setUpdating(order.id); setError("");
-    const { error } = await db.rpc("update_marketplace_refund_status", { p_order_id: order.id, p_refund_status: refundStatusDraft, p_refund_amount: Number(refundAmountDraft) });
+    const result = refundStatusDraft === "refunded"
+      ? await db.rpc("record_marketplace_cod_refund", { p_order_id: order.id, p_amount: Number(refundAmountDraft), p_payout_method: refundPayoutMethod, p_transaction_reference: refundTransactionReference.trim(), p_note: refundPayoutNote.trim() || null })
+      : await db.rpc("update_marketplace_refund_status", { p_order_id: order.id, p_refund_status: "pending", p_refund_amount: Number(refundAmountDraft) });
     setUpdating("");
-    if (error) { setError(error.message); return; }
-    setRefundConfirmOrder(null); setRefundEditorOrder(null); await load(sellerId);
+    if (result.error) { setError(result.error.message); return; }
+    setRefundConfirmOrder(null); setRefundEditorOrder(null); setRefundTransactionReference(""); setRefundPayoutNote(""); await load(sellerId);
   };
   const recordCodCollection = async (orderId: string) => {
     setUpdating(orderId); setError("");
