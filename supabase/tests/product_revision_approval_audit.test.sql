@@ -20,6 +20,11 @@ begin
   if to_regprocedure('public.list_product_review_events(uuid[])') is null then
     raise exception 'list_product_review_events RPC is missing';
   end if;
+  if has_function_privilege('authenticated',
+    'public.update_seller_marketplace_product_details(uuid,text,text,text,text,text,numeric,numeric,text[],text)',
+    'EXECUTE') then
+    raise exception 'Legacy direct-edit RPC is still executable by authenticated users';
+  end if;
   if not exists (
     select 1 from pg_trigger t
     join pg_class c on c.oid=t.tgrelid
