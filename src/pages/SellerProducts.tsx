@@ -15,7 +15,7 @@ import { SellerPortalLayout } from "@/components/seller/SellerPortalLayout";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const db = supabase as any;
-type Product = { id:string; title:string; description:string; category:string; brand:string; sku:string|null; price:number; mrp:number|null; stock_quantity:number; image_urls:string[]; status:string; created_at:string };
+type Product = { id:string; title:string; description:string; category:string; brand:string; sku:string|null; price:number; mrp:number|null; stock_quantity:number; image_urls:string[]; status:string; created_at:string; latest_revision_status?:string|null; latest_revision_summary?:string|null; latest_revision_comment?:string|null; latest_revision_at?:string|null };
 const emptyForm = { title:"", description:"", category:"", brand:"", sku:"", price:"", mrp:"", stock_quantity:"0" };
 const productCategories = ["Fashion & Clothing","Jewellery & Accessories","Beauty & Personal Care","Home & Kitchen","Kitchen & Dining","Grocery & Food","Electronics","Mobile Accessories","Toys & Games","Baby & Kids","Bags & Luggage","Footwear","Sports & Fitness","Automotive","Books & Stationery","Pet Supplies","Handmade & Crafts","Other"];
 const pretty = (s:string) => s.replaceAll("_"," ").replace(/\b\w/g,c=>c.toUpperCase());
@@ -54,7 +54,25 @@ export default function SellerProducts() {
     if (seller.onboarding_status !== "approved" || seller.account_status !== "active") { navigate("/seller/onboarding",{replace:true}); return; }
     setSellerId(seller.id);
     const {data,error:productError} = await db.schema("catalog").from("products").select("id,seller_id,title,description,category,brand,sku,price,mrp,stock_quantity,image_urls,status,created_at,updated_at").eq("seller_id",seller.id).order("created_at",{ascending:false});
-    if (productError) setError(productError.message); else { const rows=(data ?? []) as Product[]; setProducts(rows); if(rows.length){ const {data:movements}=await db.schema("catalog").from("inventory_movements").select("id,product_id,quantity_before,quantity_after,quantity_delta,movement_type,created_at").in("product_id",rows.map(p=>p.id)).order("created_at",{ascending:false}).limit(200); const grouped:Record<string,any[]>={}; (movements||[]).forEach((m:any)=>{(grouped[m.product_id] ||= []).push(m);}); setInventoryHistory(grouped); }}
+    if (productError) setError(productError.message); else {
+      const rows=(data ?? []) as Product[];
+      let revisionRows:any[]=[];
+      if(rows.length){
+        const {data:revisions,error:revisionError}=await db.schema("catalog").from("product_revisions")
+          .select("id,product_id,revision_number,review_status,seller_change_summary,review_comment,submitted_at,reviewed_at")
+          .in("product_id",rows.map(p=>p.id)).order("submitted_at",{ascending:false});
+        if(revisionError) setError(revisionError.message);
+        else revisionRows=revisions??[];
+      }
+      const latestByProduct=new Map<string,any>();
+      revisionRows.forEach((r:any)=>{if(!latestByProduct.has(r.product_id))latestByProduct.set(r.product_id,r);});
+      const enriched=rows.map(p=>{const r=latestByProduct.get(p.id);return {...p,latest_revision_status:r?.review_status??null,latest_revision_summary:r?.seller_change_summary??null,latest_revision_comment:r?.review_comment??null,latest_revision_at:r?.submitted_at??null};});
+      setProducts(enriched);
+      if(rows.length){
+        const {data:movements}=await db.schema("catalog").from("inventory_movements").select("id,product_id,quantity_before,quantity_after,quantity_delta,movement_type,created_at").in("product_id",rows.map(p=>p.id)).order("created_at",{ascending:false}).limit(200);
+        const grouped:Record<string,any[]>={}; (movements||[]).forEach((m:any)=>{(grouped[m.product_id] ||= []).push(m);}); setInventoryHistory(grouped);
+      }
+    }
     setLoading(false);
   }
 
@@ -279,6 +297,12 @@ export default function SellerProducts() {
           {expandedProductId===p.id&&<div className="mt-3 space-y-3 border-t pt-3">
           {p.status==="paused"&&<p className="text-sm text-amber-700">Paused — hidden from shoppers. Existing orders are unaffected.</p>}
           {p.status==="archived"&&<p className="mt-2 text-sm text-muted-foreground">Archived — hidden from shoppers. Order history is preserved.</p>}
+          {p.latest_revision_status&&<div className="mt-3 rounded-lg border p-3">
+            <div className="flex flex-wrap items-center gap-2"><span className="text-sm font-semibold">Latest edit review</span><Badge variant={p.latest_revision_status==="approved"?"default":p.latest_revision_status==="rejected"?"destructive":p.latest_revision_status==="pending_review"?"secondary":"outline"}>{pretty(p.latest_revision_status)}</Badge></div>
+            {p.latest_revision_at&&<p className="mt-1 text-xs text-muted-foreground">Submitted {new Date(p.latest_revision_at).toLocaleString()}</p>}
+            {p.latest_revision_summary&&<><p className="mt-2 text-xs font-medium text-muted-foreground">Your explanation</p><p className="whitespace-pre-wrap text-sm">{p.latest_revision_summary}</p></>}
+            {p.latest_revision_comment&&<><p className="mt-2 text-xs font-medium text-muted-foreground">Admin feedback</p><p className="whitespace-pre-wrap text-sm">{p.latest_revision_comment}</p></>}
+          </div>}
           {(p.status==="approved"||p.status==="paused")&&<div className="mt-3 flex flex-wrap gap-2">
             <Button size="sm" variant="outline" onClick={()=>editProduct(p)}><Package className="mr-2 h-4 w-4"/>Edit details</Button>
             {p.status==="approved"&&<Button size="sm" variant="outline" onClick={()=>setConfirmAction({product:p,action:"pause"})}><Pause className="mr-2 h-4 w-4"/>Pause listing</Button>}
