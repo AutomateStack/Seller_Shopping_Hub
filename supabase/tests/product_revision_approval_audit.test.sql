@@ -17,6 +17,9 @@ begin
   if to_regprocedure('public.review_seller_product_revision(uuid,text,text)') is null then
     raise exception 'review_seller_product_revision RPC is missing';
   end if;
+  if to_regprocedure('public.list_product_review_events(uuid[])') is null then
+    raise exception 'list_product_review_events RPC is missing';
+  end if;
   if not exists (
     select 1 from pg_trigger t
     join pg_class c on c.oid=t.tgrelid
