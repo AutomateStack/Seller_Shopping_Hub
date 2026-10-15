@@ -31,6 +31,8 @@ const Checkout = lazy(() => import("./pages/Checkout"));
 const Auth = lazy(() => import("./pages/Auth"));
 const SellerOnboarding = lazy(() => import("./pages/SellerOnboarding"));
 const SellerDashboard = lazy(() => import("./pages/SellerDashboard"));
+const SellerStoreDetails = lazy(() => import("./pages/SellerStoreDetails"));
+const AdminSellerDetailsReview = lazy(() => import("./pages/AdminSellerDetailsReview"));
 const SellerOrders = lazy(() => import("./pages/SellerOrders"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const Admin = lazy(() => import("./pages/Admin"));
@@ -88,11 +90,13 @@ const App = () => (
               <Route path="/auth" element={<Auth />} />
               <Route path="/seller/onboarding" element={<SellerOnboarding />} />
               <Route path="/seller/dashboard" element={<SellerDashboard />} />
+              <Route path="/seller/store-details" element={<SellerStoreDetails />} />
               <Route path="/seller/orders" element={<SellerOrders />} />
               <Route path="/seller/products" element={<SellerProducts />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/admin" element={<ProtectedRoute requireAdmin><Admin /></ProtectedRoute>} />
               <Route path="/admin/sellers" element={<ProtectedRoute requireAdmin><AdminSellerReview /></ProtectedRoute>} />
+              <Route path="/admin/seller-details-review" element={<ProtectedRoute requireAdmin><AdminSellerDetailsReview /></ProtectedRoute>} />
               <Route path="/admin/product-review" element={<ProtectedRoute requireAdmin><AdminProductReview /></ProtectedRoute>} />
               <Route path="/admin/marketplace-orders" element={<ProtectedRoute requireAdmin><AdminMarketplaceOrders /></ProtectedRoute>} />
               <Route path="/admin/seller-products" element={<ProtectedRoute requireAdmin><AdminSellerProducts /></ProtectedRoute>} />
