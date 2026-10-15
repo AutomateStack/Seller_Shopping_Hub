@@ -44,7 +44,7 @@ export default function AdminProductReview() {
       return rows.map(p=>({...p,seller:sellerMap.get(p.seller_id),review_notes:noteMap.get(p.id)?.review_notes??null,seller_change_summary:noteMap.get(p.id)?.seller_change_summary??null,review_history:historyMap.get(p.id)??[]}));
     }
   });
-  const {data:revisions=[],isLoading:revisionsLoading,isError:revisionsError,error:revisionsErrorValue,refetch:refetchRevisions}=useQuery<any[]>({
+  const {data:revisions=[],isLoading:revisionsLoading,isError:revisionsError,error:revisionsErrorValue,refetch:refetchRevisions,isFetching:revisionsFetching}=useQuery<any[]>({
     queryKey:["admin-product-revisions"],
     queryFn:async()=>{
       const {data,error}=await db.schema("catalog").from("product_revisions").select("id,product_id,seller_id,revision_number,previous_data,proposed_data,seller_change_summary,review_status,submitted_at,submitted_by,reviewed_at,reviewed_by,review_comment").order("submitted_at",{ascending:false}).limit(200);
@@ -93,7 +93,7 @@ export default function AdminProductReview() {
     mutation.mutate({id:p.id,status,note:note||undefined});
   }
   return <SidebarProvider><div className="min-h-screen flex w-full bg-muted/30"><AdminSidebar activeTab="product-review" onTabChange={() => {}}/><div className="flex-1 min-w-0"><div className="h-14 flex items-center gap-4 border-b bg-background px-4"><SidebarTrigger/><h2 className="font-semibold text-sm">Product Review</h2></div><main className="min-h-screen bg-background">
-    <header className="border-b border-[#f9a8c8]/60 bg-white/90"><div className="container mx-auto flex flex-wrap items-center justify-between gap-3 px-4 py-4"><div className="flex items-center gap-3"><div className="rounded-xl bg-[#fce7f3] p-2.5"><Package className="h-6 w-6 text-primary"/></div><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Shopping Hub</p><h1 className="text-xl font-bold">Product review</h1></div></div><div className="flex gap-2"><Button variant="outline" asChild><Link to="/admin"><ArrowLeft className="mr-2 h-4 w-4"/>Admin home</Link></Button><Button variant="outline" onClick={()=>void refetch()} disabled={isFetching}><RefreshCw className={`mr-2 h-4 w-4 ${isFetching?"animate-spin":""}`}/>Refresh</Button></div></div></header>
+    <header className="border-b border-[#f9a8c8]/60 bg-white/90"><div className="container mx-auto flex flex-wrap items-center justify-between gap-3 px-4 py-4"><div className="flex items-center gap-3"><div className="rounded-xl bg-[#fce7f3] p-2.5"><Package className="h-6 w-6 text-primary"/></div><div><p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Shopping Hub</p><h1 className="text-xl font-bold">Product review</h1></div></div><div className="flex gap-2"><Button variant="outline" asChild><Link to="/admin"><ArrowLeft className="mr-2 h-4 w-4"/>Admin home</Link></Button><Button variant="outline" onClick={()=>void Promise.all([refetch(),refetchRevisions()])} disabled={isFetching||revisionsFetching}><RefreshCw className={`mr-2 h-4 w-4 ${isFetching||revisionsFetching?"animate-spin":""}`}/>Refresh</Button></div></div></header>
     <div className="container mx-auto max-w-6xl space-y-6 px-4 py-8">
       <div><h2 className="text-2xl font-bold">Product submissions</h2><p className="text-muted-foreground">Approve products before they are published to the marketplace.</p></div>
       <section className="space-y-4 rounded-xl border border-primary/20 bg-primary/[0.02] p-4 sm:p-6">
