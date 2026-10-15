@@ -54,6 +54,17 @@ export default function AdminSellerReview() {
     },
   });
 
+  const { data: pendingBusinessChanges = 0, isError: businessChangesCountError } = useQuery<number>({
+    queryKey: ["seller-profile-change-requests-pending-count"],
+    queryFn: async () => {
+      const { count, error } = await db.schema("seller").from("profile_change_requests")
+        .select("id", { count: "exact", head: true })
+        .eq("status", "pending");
+      if (error) throw error;
+      return count ?? 0;
+    },
+  });
+
   const reviewMutation = useMutation({
     mutationFn: async ({ sellerId, decision, reason }: { sellerId: string; decision: "approved" | "rejected" | "needs_changes"; reason?: string }) => {
       const { error } = await db.rpc("review_seller_application", {
@@ -127,6 +138,24 @@ export default function AdminSellerReview() {
             { label: "Rejected", value: counts.rejected, icon: XCircle },
           ].map((item) => <Card key={item.label} className="border-[#f9a8c8]/50"><CardContent className="flex items-center justify-between p-5"><div><p className="text-sm text-muted-foreground">{item.label}</p><p className="mt-1 text-3xl font-bold">{item.value}</p></div><div className="rounded-xl bg-[#fce7f3] p-3"><item.icon className="h-5 w-5 text-primary" /></div></CardContent></Card>)}
         </div>
+
+        <Card className="border-[#f9a8c8]/60 bg-gradient-to-r from-[#fff7fb] to-white">
+          <CardContent className="flex flex-col justify-between gap-4 p-5 sm:flex-row sm:items-center">
+            <div className="flex items-start gap-3">
+              <div className="rounded-xl bg-[#fce7f3] p-3"><Store className="h-5 w-5 text-primary" /></div>
+              <div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <h3 className="font-semibold">Business detail changes</h3>
+                  {!businessChangesCountError && <Badge variant={pendingBusinessChanges > 0 ? "default" : "secondary"}>{pendingBusinessChanges} pending review</Badge>}
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  {businessChangesCountError ? "Pending request count is unavailable. Open the review page to check requests." : pendingBusinessChanges > 0 ? "Seller identity updates are waiting for an admin decision." : "No business identity changes are currently awaiting review."}
+                </p>
+              </div>
+            </div>
+            <Button variant="outline" asChild className="shrink-0"><Link to="/admin/seller-details-review">Review business changes</Link></Button>
+          </CardContent>
+        </Card>
 
         <Card className="border-[#f9a8c8]/50">
           <CardContent className="flex flex-col gap-3 p-4 md:flex-row">
