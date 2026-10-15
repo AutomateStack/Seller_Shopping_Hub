@@ -5,7 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Link, useSearchParams } from "react-router-dom";
-import { Search, SlidersHorizontal, X, CheckCircle2, Star } from "lucide-react";
+import { Search, SlidersHorizontal, X, CheckCircle2, Star, Store } from "lucide-react";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Badge } from "@/components/ui/badge";
 import { WishlistButton } from "@/components/WishlistButton";
@@ -102,14 +102,26 @@ export default function Products() {
       const { data, error } = await (supabase as any)
         .schema("catalog")
         .from("products")
-        .select("id,title,description,category,brand,price,mrp,stock_quantity,image_urls,created_at")
+        .select("id,title,description,category,brand,price,mrp,stock_quantity,image_urls,created_at,seller_id")
         .eq("status", "approved")
         .gt("stock_quantity", 0)
         .order("created_at", { ascending: false })
         .limit(60);
       if (error) throw error;
-      return (data ?? []).filter((p: any) => {
-        const matchesSearch = !searchTerm || [p.title,p.description,p.brand,p.category].some((v:any) => String(v ?? "").toLowerCase().includes(searchTerm.toLowerCase()));
+      const listings = data ?? [];
+      const sellerIds = [...new Set(listings.map((p: any) => p.seller_id).filter(Boolean))];
+      let sellerById: Record<string, any> = {};
+      if (sellerIds.length) {
+        const { data: sellers, error: sellerError } = await (supabase as any)
+          .schema("seller")
+          .from("seller_profiles")
+          .select("id,store_name,business_name,contact_name,profile_photo_url")
+          .in("id", sellerIds);
+        if (sellerError) throw sellerError;
+        sellerById = Object.fromEntries((sellers ?? []).map((seller: any) => [seller.id, seller]));
+      }
+      return listings.map((p: any) => ({ ...p, seller: sellerById[p.seller_id] ?? null })).filter((p: any) => {
+        const matchesSearch = !searchTerm || [p.title,p.description,p.brand,p.category,p.seller?.business_name,p.seller?.store_name].some((v:any) => String(v ?? "").toLowerCase().includes(searchTerm.toLowerCase()));
         const matchesCategory = !category || category === "all" || p.category === category;
         return matchesSearch && matchesCategory;
       });
@@ -475,6 +487,7 @@ export default function Products() {
                   <CardContent className="p-4">
                     <h3 className="font-semibold line-clamp-2">{product.title}</h3>
                     {product.category && <p className="mt-1 text-xs text-muted-foreground">{product.category}</p>}
+                    {product.seller && <div className="mt-3 flex items-center gap-2 border-t pt-3"><div className="flex h-7 w-7 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-primary">{product.seller.profile_photo_url ? <img src={product.seller.profile_photo_url} alt="" className="h-full w-full object-cover" /> : <Store className="h-4 w-4" />}</div><span className="truncate text-xs text-muted-foreground">{product.seller.business_name || product.seller.store_name || product.seller.contact_name || "Verified seller"}</span></div>}
                     <div className="mt-2 flex items-baseline gap-2">
                       <p className="text-xl font-bold text-primary">₹{Number(product.price).toFixed(2)}</p>
                       {product.mrp && Number(product.mrp) > Number(product.price) && <p className="text-sm text-muted-foreground line-through">₹{Number(product.mrp).toFixed(2)}</p>}
