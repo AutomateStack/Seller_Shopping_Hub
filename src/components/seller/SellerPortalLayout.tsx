@@ -10,7 +10,7 @@ export function SellerPortalLayout({children,storeName="Seller workspace"}:{chil
   const [collapsed,setCollapsed]=useState(()=>{try{return localStorage.getItem("seller-sidebar-collapsed")==="true"}catch{return false}});
   const toggle=()=>setCollapsed(value=>{const next=!value;try{localStorage.setItem("seller-sidebar-collapsed",String(next))}catch{}return next});
   const signOut=async()=>{await supabase.auth.signOut();navigate("/")};
-  const links=[{to:"/seller/dashboard",label:"Dashboard",icon:LayoutDashboard},{to:"/seller/orders",label:"Orders",icon:ShoppingBag},{to:"/seller/products",label:"My products",icon:Package},{to:"/seller/storefront",label:"Storefront",icon:Store},{to:"/seller/onboarding",label:"Store details",icon:Settings}];
+  const links=[{to:"/seller/dashboard",label:"Dashboard",icon:LayoutDashboard},{to:"/seller/orders",label:"Orders",icon:ShoppingBag},{to:"/seller/products",label:"My products",icon:Package},{to:"/seller/storefront",label:"Storefront",icon:Store},{to:"/seller/store-details",label:"Store details",icon:Settings}];
   return <div className={`min-h-screen bg-muted/30 lg:grid ${collapsed?"lg:grid-cols-[76px_minmax(0,1fr)]":"lg:grid-cols-[250px_minmax(0,1fr)]"}`}>
     <aside className={`hidden border-r bg-card lg:flex lg:min-h-screen lg:flex-col ${collapsed?"items-center":""}`}>
       <div className={`flex h-20 w-full items-center border-b ${collapsed?"justify-center px-2":"gap-3 px-5"}`}><div className="rounded-xl bg-primary p-2 text-primary-foreground"><Store className="h-5 w-5"/></div>{!collapsed&&<div className="min-w-0"><p className="font-bold">ShopHub</p><p className="text-xs text-muted-foreground">Seller portal</p></div>}</div>
