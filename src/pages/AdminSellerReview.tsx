@@ -107,6 +107,7 @@ export default function AdminSellerReview() {
           </div>
           <div className="flex gap-2">
             <Button variant="outline" asChild><Link to="/admin"><ArrowLeft className="mr-2 h-4 w-4" /> Admin home</Link></Button>
+            <Button variant="outline" asChild><Link to="/admin/seller-details-review"><Store className="mr-2 h-4 w-4" /> Business detail changes</Link></Button>
             <Button variant="outline" onClick={() => void refetch()} disabled={isFetching}><RefreshCw className={`mr-2 h-4 w-4 ${isFetching ? "animate-spin" : ""}`} /> Refresh</Button>
           </div>
         </div>
