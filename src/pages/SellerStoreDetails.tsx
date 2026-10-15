@@ -5,6 +5,7 @@ import { SellerPortalLayout } from "@/components/seller/SellerPortalLayout";
 import { SEOHead } from "@/components/SEOHead";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -21,7 +22,7 @@ type Seller = {
 };
 type ChangeRequest = {
   id: string; proposed_store_name: string; proposed_business_name: string | null;
-  proposed_business_type: string; proposed_gstin: string | null; status: string;
+  proposed_business_type: string; proposed_gstin: string | null; change_type?: string | null; seller_explanation?: string | null; status: string;
   review_note: string | null; submitted_at: string; reviewed_at: string | null;
 };
 
@@ -47,6 +48,8 @@ export default function SellerStoreDetails() {
   const [businessName, setBusinessName] = useState("");
   const [businessType, setBusinessType] = useState("individual");
   const [gstin, setGstin] = useState("");
+  const [changeType, setChangeType] = useState("");
+  const [sellerExplanation, setSellerExplanation] = useState("");
   const [loading, setLoading] = useState(true);
   const [savingContact, setSavingContact] = useState(false);
   const [savingPhoto, setSavingPhoto] = useState(false);
@@ -70,7 +73,7 @@ export default function SellerStoreDetails() {
     setBusinessType(row.business_type ?? "individual");
     setGstin(row.gstin ?? "");
     const { data: changeRows, error: requestError } = await db.schema("seller").from("profile_change_requests")
-      .select("id,proposed_store_name,proposed_business_name,proposed_business_type,proposed_gstin,status,review_note,submitted_at,reviewed_at")
+      .select("id,proposed_store_name,proposed_business_name,proposed_business_type,proposed_gstin,change_type,seller_explanation,status,review_note,submitted_at,reviewed_at")
       .eq("seller_id", row.id).order("submitted_at", { ascending: false }).limit(10);
     if (requestError) toast({ title: "Could not load change request history", description: requestError.message, variant: "destructive" });
     setRequests((changeRows ?? []) as ChangeRequest[]);
@@ -125,14 +128,17 @@ export default function SellerStoreDetails() {
   const submitBusinessChanges = async (event: React.FormEvent) => {
     event.preventDefault();
     if (pendingRequest) return;
+    if (!changeType) { toast({ title: "Select what is changing", description: "Choose the business detail you want to update.", variant: "destructive" }); return; }
+    if (sellerExplanation.trim().length < 10) { toast({ title: "Please explain the change", description: "Add at least 10 characters so the admin understands your request.", variant: "destructive" }); return; }
     const normalizedGstin = gstin.trim().toUpperCase();
     if (normalizedGstin && !/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(normalizedGstin)) {
       toast({ title: "Check the GSTIN format", description: "Enter a valid 15-character GSTIN format, or leave it blank.", variant: "destructive" }); return;
     }
     setSubmittingChanges(true);
-    const { error } = await db.rpc("submit_seller_profile_change_request", {
+    const { error } = await db.rpc("submit_seller_profile_change_request_with_reason", {
       p_store_name: storeName.trim(), p_business_name: businessName.trim(),
       p_business_type: businessType, p_gstin: normalizedGstin,
+      p_change_type: changeType, p_seller_explanation: sellerExplanation.trim(),
     });
     setSubmittingChanges(false);
     if (error) { toast({ title: "Could not submit changes", description: error.message, variant: "destructive" }); return; }
@@ -179,7 +185,11 @@ export default function SellerStoreDetails() {
               <div className="space-y-2"><Label>Business type *</Label><Select value={businessType} onValueChange={setBusinessType} disabled={pendingRequest || submittingChanges}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{businessTypes.map(type => <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>)}</SelectContent></Select></div>
               <div className="space-y-2"><Label htmlFor="gstin">GSTIN (if applicable)</Label><Input id="gstin" value={gstin} onChange={e => setGstin(e.target.value.toUpperCase())} maxLength={15} disabled={pendingRequest || submittingChanges} placeholder="15-character GSTIN" /></div>
             </div>
-            <div className="rounded-lg border bg-muted/30 p-4 text-sm text-muted-foreground">Submitting a request does not change your approved store details. Admin review is required before the proposed identity becomes official.</div>
+            <div className="space-y-4 rounded-lg border p-4">
+              <div className="space-y-2"><Label>What are you changing? *</Label><Select value={changeType} onValueChange={setChangeType} disabled={pendingRequest || submittingChanges}><SelectTrigger><SelectValue placeholder="Choose the detail being changed" /></SelectTrigger><SelectContent><SelectItem value="store_name">Store name</SelectItem><SelectItem value="business_name">Registered business name</SelectItem><SelectItem value="business_type">Business type</SelectItem><SelectItem value="gstin">GSTIN</SelectItem><SelectItem value="multiple">Multiple business details</SelectItem></SelectContent></Select></div>
+              <div className="space-y-2"><Label htmlFor="seller-change-explanation">Why are you requesting this change? *</Label><Textarea id="seller-change-explanation" value={sellerExplanation} onChange={e => setSellerExplanation(e.target.value)} minLength={10} maxLength={1000} disabled={pendingRequest || submittingChanges} placeholder="Explain what changed and why these details need updating…" required /><p className="text-xs text-muted-foreground">Please enter at least 10 characters. This explanation will be visible to the admin reviewing your request.</p></div>
+              <p className="text-sm text-muted-foreground">Submitting a request does not change your approved store details. Admin review is required before the proposed identity becomes official.</p>
+            </div>
             <Button type="submit" disabled={pendingRequest || submittingChanges}>{submittingChanges ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}Submit business changes for review</Button>
           </form></CardContent>
         </Card>
@@ -188,6 +198,8 @@ export default function SellerStoreDetails() {
           <CardContent className="space-y-3">{requests.length === 0 ? <p className="text-sm text-muted-foreground">You have not submitted any business detail changes.</p> : requests.map(request => <div key={request.id} className="rounded-lg border p-4 space-y-2">
             <div className="flex flex-wrap items-center justify-between gap-2"><p className="font-medium">Submitted {dateLabel(request.submitted_at)}</p><Badge variant={request.status === "approved" ? "default" : request.status === "pending" ? "secondary" : "outline"}>{pretty(request.status)}</Badge></div>
             <p className="text-sm">Requested store name: <strong>{request.proposed_store_name}</strong></p>
+            {request.change_type && <p className="text-sm">Change type: <strong>{pretty(request.change_type)}</strong></p>}
+            {request.seller_explanation && <Alert><AlertTitle>Seller explanation</AlertTitle><AlertDescription className="whitespace-pre-wrap">{request.seller_explanation}</AlertDescription></Alert>}
             <p className="text-sm">Business: {request.proposed_business_name || "Not provided"} · {pretty(request.proposed_business_type)} · GSTIN: {request.proposed_gstin || "Not provided"}</p>
             {request.reviewed_at && <p className="text-xs text-muted-foreground">Reviewed {dateLabel(request.reviewed_at)}</p>}
             {request.review_note && <Alert><AlertTitle>Admin feedback</AlertTitle><AlertDescription className="whitespace-pre-wrap">{request.review_note}</AlertDescription></Alert>}
