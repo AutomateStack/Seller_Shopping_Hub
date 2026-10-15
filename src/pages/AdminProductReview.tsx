@@ -14,7 +14,7 @@ import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { ArrowLeft, CheckCircle2, Loader2, Package, RefreshCw, ShieldAlert, XCircle } from "lucide-react";
 
 const db = supabase as any;
-type Product = {id:string;seller_id:string;title:string;description:string;category:string;brand:string;sku:string|null;price:number;mrp:number|null;stock_quantity:number;image_urls:string[];status:string;review_notes:string|null;seller_change_summary?:string|null;created_at:string;};
+type Product = {id:string;seller_id:string;title:string;description:string;category:string;brand:string;sku:string|null;price:number;mrp:number|null;stock_quantity:number;image_urls:string[];status:string;review_notes:string|null;seller_change_summary?:string|null;created_at:string;seller?:{business_name?:string|null;store_name?:string|null;contact_name?:string|null}|null;};
 const pretty=(s:string)=>s.replaceAll("_"," ").replace(/\b\w/g,c=>c.toUpperCase());
 
 export default function AdminProductReview() {
@@ -28,10 +28,16 @@ export default function AdminProductReview() {
       const {data,error}=await db.schema("catalog").from("products").select("id,seller_id,title,description,category,brand,sku,price,mrp,stock_quantity,image_urls,status,created_at").order("created_at",{ascending:false});
       if(error) throw error;
       const rows=(data??[]) as Product[];
-      const {data:noteRows,error:notesError}=await db.schema("catalog").from("product_review_notes").select("product_id,review_notes,seller_change_summary");
+      const sellerIds=[...new Set(rows.map(p=>p.seller_id))];
+      const [{data:noteRows,error:notesError},{data:sellers,error:sellerError}]=await Promise.all([
+        db.schema("catalog").from("product_review_notes").select("product_id,review_notes,seller_change_summary"),
+        sellerIds.length ? db.schema("seller").from("seller_profiles").select("id,business_name,store_name,contact_name").in("id",sellerIds) : Promise.resolve({data:[],error:null})
+      ]);
       if(notesError) throw notesError;
+      if(sellerError) throw sellerError;
       const noteMap=new Map((noteRows??[]).map((n:any)=>[n.product_id,n]));
-      return rows.map(p=>({...p,review_notes:noteMap.get(p.id)?.review_notes??null,seller_change_summary:noteMap.get(p.id)?.seller_change_summary??null}));
+      const sellerMap=new Map((sellers??[]).map((s:any)=>[s.id,s]));
+      return rows.map(p=>({...p,seller:sellerMap.get(p.seller_id),review_notes:noteMap.get(p.id)?.review_notes??null,seller_change_summary:noteMap.get(p.id)?.seller_change_summary??null}));
     }
   });
   const {data:revisions=[],isLoading:revisionsLoading,isError:revisionsError,error:revisionsErrorValue,refetch:refetchRevisions}=useQuery<any[]>({
@@ -114,7 +120,7 @@ export default function AdminProductReview() {
       {isLoading&&<div className="flex justify-center gap-2 py-10 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin"/>Loading products…</div>}
       {isError&&<Card className="border-destructive"><CardContent className="flex items-start gap-3 p-5"><ShieldAlert className="h-5 w-5 text-destructive"/><div><p className="font-semibold">Could not load products</p><p className="text-sm text-muted-foreground">{(error as Error).message}</p><Button className="mt-3" variant="outline" onClick={()=>void refetch()}>Retry</Button></div></CardContent></Card>}
       {!isLoading&&!isError&&shown.length===0&&<Card className="border-dashed"><CardContent className="py-12 text-center"><Package className="mx-auto h-9 w-9 text-muted-foreground"/><p className="mt-3 font-semibold">No products in this view</p><p className="text-sm text-muted-foreground">Seller submissions will appear here after they are sent for review.</p></CardContent></Card>}
-      <div className="space-y-4">{shown.map(p=><Card key={p.id}><CardHeader><div className="flex flex-wrap items-start justify-between gap-3"><div><CardTitle>{p.title}</CardTitle><CardDescription>{p.category}{p.brand?` · ${p.brand}`:""} · Added {new Date(p.created_at).toLocaleString()}</CardDescription></div><Badge variant={p.status==="approved"?"default":p.status==="rejected"?"destructive":"secondary"}>{pretty(p.status)}</Badge></div></CardHeader><CardContent className="space-y-4">
+      <div className="space-y-4">{shown.map(p=><Card key={p.id}><CardHeader><div className="flex flex-wrap items-start justify-between gap-3"><div><CardTitle>{p.title}</CardTitle><CardDescription>{p.seller?.business_name||p.seller?.store_name||p.seller?.contact_name||"Seller"} · {p.category}{p.brand?` · ${p.brand}`:""} · Added {new Date(p.created_at).toLocaleString()}</CardDescription></div><Badge variant={p.status==="approved"?"default":p.status==="rejected"?"destructive":"secondary"}>{pretty(p.status)}</Badge></div></CardHeader><CardContent className="space-y-4">
         {p.image_urls?.length>0&&<div className="flex flex-wrap gap-2">{p.image_urls.map((url,i)=><a href={url} target="_blank" rel="noreferrer" key={url}><img src={url} alt={`${p.title} image ${i+1}`} className="h-24 w-24 rounded-md border object-cover"/></a>)}</div>}
         <p className="whitespace-pre-wrap text-sm">{p.description||"No description provided."}</p>
         <div className="grid gap-3 sm:grid-cols-3"><div><p className="text-xs text-muted-foreground">Selling price</p><p className="font-semibold">₹{Number(p.price).toFixed(2)}</p></div><div><p className="text-xs text-muted-foreground">MRP</p><p>{p.mrp? `₹${Number(p.mrp).toFixed(2)}`:"Not provided"}</p></div><div><p className="text-xs text-muted-foreground">Stock</p><p>{p.stock_quantity}</p></div><div><p className="text-xs text-muted-foreground">SKU</p><p>{p.sku||"Not provided"}</p></div></div>
