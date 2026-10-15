@@ -11,7 +11,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useToast } from "@/hooks/use-toast";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AdminSidebar } from "@/components/admin/AdminSidebar";
-import { ArrowLeft, CheckCircle2, Clock3, Loader2, RefreshCw, Store, XCircle } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Clock3, Loader2, RefreshCw, Store, UserRound, XCircle } from "lucide-react";
 
 const db = supabase as any;
 type RequestRow = {
@@ -19,7 +19,7 @@ type RequestRow = {
   proposed_business_type: string; proposed_gstin: string | null; status: string;
   review_note: string | null; submitted_at: string; reviewed_at: string | null;
 };
-type SellerRow = { id: string; store_name: string; contact_name: string; contact_email: string | null; business_name: string | null; business_type: string; gstin: string | null; };
+type SellerRow = { id: string; store_name: string; contact_name: string; contact_email: string | null; profile_photo_url: string | null; business_name: string | null; business_type: string; gstin: string | null; };
 const pretty = (value: string) => value.replaceAll("_", " ").replace(/\b\w/g, c => c.toUpperCase());
 const dateLabel = (value: string) => new Date(value).toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
 
@@ -40,7 +40,7 @@ export default function AdminSellerDetailsReview() {
       let sellers: SellerRow[] = [];
       if (sellerIds.length) {
         const { data: profiles, error: profileError } = await db.schema("seller").from("seller_profiles")
-          .select("id,store_name,contact_name,contact_email,business_name,business_type,gstin").in("id", sellerIds);
+          .select("id,store_name,contact_name,contact_email,profile_photo_url,business_name,business_type,gstin").in("id", sellerIds);
         if (profileError) throw profileError;
         sellers = (profiles ?? []) as SellerRow[];
       }
@@ -83,7 +83,10 @@ export default function AdminSellerDetailsReview() {
         {isLoading ? <div className="flex items-center gap-2 py-12 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /> Loading requests…</div> : error ? <Card><CardContent className="py-8 text-destructive">Could not load requests: {(error as Error).message}</CardContent></Card> : filtered.length === 0 ? <Card><CardContent className="py-10 text-center text-muted-foreground">No {filter === "all" ? "" : pretty(filter).toLowerCase() + " "}business detail requests found.</CardContent></Card> : filtered.map(request => {
           const seller = sellerById.get(request.seller_id);
           const busy = review.isPending;
-          return <Card key={request.id}><CardHeader><div className="flex flex-wrap items-start justify-between gap-3"><div><CardTitle>{seller?.store_name ?? "Seller store"} → {request.proposed_store_name}</CardTitle><CardDescription>{seller?.contact_name ?? "Seller"} · {seller?.contact_email ?? "No email"} · Submitted {dateLabel(request.submitted_at)}</CardDescription></div><Badge variant={request.status === "approved" ? "default" : request.status === "pending" ? "secondary" : "outline"}>{pretty(request.status)}</Badge></div></CardHeader>
+          return <Card key={request.id}><CardHeader><div className="flex flex-wrap items-start justify-between gap-3"><div className="flex items-center gap-3">
+                    {seller?.profile_photo_url ? <img src={seller.profile_photo_url} alt={seller.contact_name + " profile"} className="h-11 w-11 rounded-full border object-cover" /> : <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary"><UserRound className="h-5 w-5" /></div>}
+                    <div><CardTitle>{seller?.store_name ?? "Seller store"} → {request.proposed_store_name}</CardTitle><CardDescription>{seller?.contact_name ?? "Seller"} · {seller?.contact_email ?? "No email"} · Submitted {dateLabel(request.submitted_at)}</CardDescription></div>
+                  </div><Badge variant={request.status === "approved" ? "default" : request.status === "pending" ? "secondary" : "outline"}>{pretty(request.status)}</Badge></div></CardHeader>
             <CardContent className="space-y-4">
               <div className="grid gap-3 md:grid-cols-2"><div className="rounded-lg border p-3"><p className="mb-2 text-sm font-semibold">Current approved details</p><p className="text-sm">Store name: {seller?.store_name ?? "—"}</p><p className="text-sm">Business name: {seller?.business_name ?? "Not provided"}</p><p className="text-sm">Business type: {seller?.business_type ? pretty(seller.business_type) : "—"}</p><p className="text-sm">GSTIN: {seller?.gstin ?? "Not provided"}</p></div>
                 <div className="rounded-lg border border-primary/30 bg-primary/5 p-3"><p className="mb-2 text-sm font-semibold">Proposed details</p><p className="text-sm">Store name: {request.proposed_store_name}</p><p className="text-sm">Business name: {request.proposed_business_name ?? "Not provided"}</p><p className="text-sm">Business type: {pretty(request.proposed_business_type)}</p><p className="text-sm">GSTIN: {request.proposed_gstin ?? "Not provided"}</p></div></div>
