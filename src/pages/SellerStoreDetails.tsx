@@ -50,6 +50,7 @@ export default function SellerStoreDetails() {
   const [gstin, setGstin] = useState("");
   const [changeType, setChangeType] = useState("");
   const [sellerExplanation, setSellerExplanation] = useState("");
+  const [editingBusiness, setEditingBusiness] = useState(false);
   const [loading, setLoading] = useState(true);
   const [savingContact, setSavingContact] = useState(false);
   const [savingPhoto, setSavingPhoto] = useState(false);
@@ -175,22 +176,22 @@ export default function SellerStoreDetails() {
         </Card>
 
         <Card>
-          <CardHeader><CardTitle>Store and registered business identity</CardTitle><CardDescription>These details are shown to customers or used for business verification. Changes only become official after admin approval.</CardDescription></CardHeader>
+          <CardHeader><div className="flex flex-wrap items-start justify-between gap-3"><div><CardTitle>Store and registered business identity</CardTitle><CardDescription>These details are shown to customers or used for business verification. Changes only become official after admin approval.</CardDescription></div>{!editingBusiness && <Button type="button" variant="outline" onClick={() => setEditingBusiness(true)} disabled={pendingRequest}><Save className="mr-2 h-4 w-4" />Edit business details</Button>}</div></CardHeader>
           <CardContent><form onSubmit={submitBusinessChanges} className="space-y-4">
             {pendingRequest && <Alert><ShieldCheck className="h-4 w-4" /><AlertTitle>Changes awaiting review</AlertTitle><AlertDescription>Your current approved information remains active. You can submit another request after this one is reviewed.</AlertDescription></Alert>}
             <div className="grid gap-4 sm:grid-cols-2">
-              <div className="space-y-2"><Label htmlFor="store-name">Store name *</Label><Input id="store-name" value={storeName} onChange={e => setStoreName(e.target.value)} required minLength={2} maxLength={120} disabled={pendingRequest || submittingChanges} /></div>
+              <div className="space-y-2"><Label htmlFor="store-name">Store name *</Label><Input id="store-name" value={storeName} onChange={e => setStoreName(e.target.value)} required minLength={2} maxLength={120} disabled={!editingBusiness || pendingRequest || submittingChanges} /></div>
               <div className="space-y-2"><Label htmlFor="store-url">Current public store URL</Label><Input id="store-url" value={seller.store_slug ? `/store/${seller.store_slug}` : "Not set"} readOnly disabled /><p className="text-xs text-muted-foreground">The URL changes only when the requested store name is approved.</p></div>
               <div className="space-y-2"><Label htmlFor="business-name">Registered business name</Label><Input id="business-name" value={businessName} onChange={e => setBusinessName(e.target.value)} maxLength={160} disabled={pendingRequest || submittingChanges} /></div>
               <div className="space-y-2"><Label>Business type *</Label><Select value={businessType} onValueChange={setBusinessType} disabled={pendingRequest || submittingChanges}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{businessTypes.map(type => <SelectItem key={type.value} value={type.value}>{type.label}</SelectItem>)}</SelectContent></Select></div>
               <div className="space-y-2"><Label htmlFor="gstin">GSTIN (if applicable)</Label><Input id="gstin" value={gstin} onChange={e => setGstin(e.target.value.toUpperCase())} maxLength={15} disabled={pendingRequest || submittingChanges} placeholder="15-character GSTIN" /></div>
             </div>
-            <div className="space-y-4 rounded-lg border p-4">
+            {editingBusiness && <div className="space-y-4 rounded-lg border p-4">
               <div className="space-y-2"><Label>What are you changing? *</Label><Select value={changeType} onValueChange={setChangeType} disabled={pendingRequest || submittingChanges}><SelectTrigger><SelectValue placeholder="Choose the detail being changed" /></SelectTrigger><SelectContent><SelectItem value="store_name">Store name</SelectItem><SelectItem value="business_name">Registered business name</SelectItem><SelectItem value="business_type">Business type</SelectItem><SelectItem value="gstin">GSTIN</SelectItem><SelectItem value="multiple">Multiple business details</SelectItem></SelectContent></Select></div>
               <div className="space-y-2"><Label htmlFor="seller-change-explanation">Why are you requesting this change? *</Label><Textarea id="seller-change-explanation" value={sellerExplanation} onChange={e => setSellerExplanation(e.target.value)} minLength={10} maxLength={1000} disabled={pendingRequest || submittingChanges} placeholder="Explain what changed and why these details need updating…" required /><p className="text-xs text-muted-foreground">Please enter at least 10 characters. This explanation will be visible to the admin reviewing your request.</p></div>
               <p className="text-sm text-muted-foreground">Submitting a request does not change your approved store details. Admin review is required before the proposed identity becomes official.</p>
-            </div>
-            <Button type="submit" disabled={pendingRequest || submittingChanges}>{submittingChanges ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}Submit business changes for review</Button>
+            </div>}
+            {editingBusiness && <div className="flex flex-wrap gap-2"><Button type="submit" disabled={pendingRequest || submittingChanges}>{submittingChanges ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}Submit business changes for review</Button><Button type="button" variant="outline" disabled={submittingChanges} onClick={() => { setStoreName(seller.store_name ?? ""); setBusinessName(seller.business_name ?? ""); setBusinessType(seller.business_type ?? "individual"); setGstin(seller.gstin ?? ""); setChangeType(""); setSellerExplanation(""); setEditingBusiness(false); }}>Cancel</Button></div>}
           </form></CardContent>
         </Card>
 
