@@ -40,3 +40,20 @@ create policy "Sellers delete their own profile photos"
   using (bucket_id = 'seller-profile-photos' and (storage.foldername(name))[1] = auth.uid()::text);
 
 grant select on seller.seller_profiles to authenticated;
+
+create or replace function public.update_seller_profile_photo(p_photo_url text)
+returns void language plpgsql security definer
+set search_path = pg_catalog, public, seller
+as $$
+begin
+  if auth.uid() is null then raise exception 'Authentication required'; end if;
+  if p_photo_url is not null and (length(p_photo_url) > 2048 or p_photo_url not like '%/storage/v1/object/public/seller-profile-photos/' || auth.uid()::text || '/%') then
+    raise exception 'Invalid profile photo path';
+  end if;
+  update seller.seller_profiles set profile_photo_url = p_photo_url
+  where user_id = auth.uid() and onboarding_status = 'approved' and account_status = 'active';
+  if not found then raise exception 'An approved, active seller account is required'; end if;
+end;
+$$;
+revoke all on function public.update_seller_profile_photo(text) from public, anon;
+grant execute on function public.update_seller_profile_photo(text) to authenticated;
