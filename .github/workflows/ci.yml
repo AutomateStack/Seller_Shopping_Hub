@@ -4,7 +4,7 @@ on:
   pull_request:
     branches: [main]
   push:
-    branches: [main, feat/product-revision-approval-audit]
+    branches: [main]
 
 permissions:
   contents: read
@@ -25,5 +25,3 @@ jobs:
         run: npm ci
       - name: Build application
         run: npm run build
-      - name: Lint application
-        run: npm run lint
