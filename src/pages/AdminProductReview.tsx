@@ -59,7 +59,7 @@ export default function AdminProductReview() {
       ]);
       if(eventError) throw eventError; if(productError) throw productError; if(sellerError) throw sellerError;
       const productMap=new Map((productsForRevision??[]).map((p:any)=>[p.id,p])), sellerMap=new Map((sellers??[]).map((p:any)=>[p.id,p]));
-      return rows.map((r:any)=>({...r,events:(events??[]).filter((e:any)=>e.revision_id===r.id).sort((a:any,b:any)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime()),product:productMap.get(r.product_id),seller:sellerMap.get(r.seller_id)}));
+      return rows.map((r:any)=>({...r,events:(events??[]).filter((e:any)=>e.revision_id===r.id).sort((a:any,b:any)=>new Date(b.created_at).getTime()-new Date(a.created_at).getTime()),product:productMap.get(r.product_id),seller:sellerMap.get(r.seller_id)})).sort((a:any,b:any)=>{const aPending=a.review_status==="pending_review"?1:0;const bPending=b.review_status==="pending_review"?1:0;return bPending-aPending||new Date(b.submitted_at).getTime()-new Date(a.submitted_at).getTime();});
     }
   });
   const revisionMutation=useMutation({
