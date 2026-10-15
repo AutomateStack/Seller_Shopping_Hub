@@ -15,7 +15,7 @@ import { SellerPortalLayout } from "@/components/seller/SellerPortalLayout";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const db = supabase as any;
-type Product = { id:string; title:string; description:string; category:string; brand:string; sku:string|null; price:number; mrp:number|null; stock_quantity:number; image_urls:string[]; status:string; created_at:string };
+type Product = { id:string; title:string; description:string; category:string; brand:string; sku:string|null; price:number; mrp:number|null; stock_quantity:number; image_urls:string[]; status:string; created_at:string; latest_revision_status?:string|null; latest_revision_summary?:string|null; latest_revision_comment?:string|null; latest_revision_at?:string|null };
 const emptyForm = { title:"", description:"", category:"", brand:"", sku:"", price:"", mrp:"", stock_quantity:"0" };
 const productCategories = ["Fashion & Clothing","Jewellery & Accessories","Beauty & Personal Care","Home & Kitchen","Kitchen & Dining","Grocery & Food","Electronics","Mobile Accessories","Toys & Games","Baby & Kids","Bags & Luggage","Footwear","Sports & Fitness","Automotive","Books & Stationery","Pet Supplies","Handmade & Crafts","Other"];
 const pretty = (s:string) => s.replaceAll("_"," ").replace(/\b\w/g,c=>c.toUpperCase());
@@ -42,23 +42,55 @@ export default function SellerProducts() {
   const [expandedProductId,setExpandedProductId] = useState<string|null>(null);
   const [changeSummary,setChangeSummary] = useState("");
   const [reviewConfirmOpen,setReviewConfirmOpen] = useState(false);
+  const [reviewNotifications,setReviewNotifications] = useState<any[]>([]);
+  const [notificationBusy,setNotificationBusy] = useState<string|null>(null);
 
   async function load() {
     setLoading(true); setError("");
     const {data:{session}} = await supabase.auth.getSession();
     if (!session) { navigate("/auth?next=/seller/products",{replace:true}); return; }
     setUserId(session.user.id);
+    const {data:notificationRows,error:notificationError}=await db.schema("seller").from("product_review_notifications")
+      .select("id,title,body,payload,created_at,read_at").eq("user_id",session.user.id).order("created_at",{ascending:false}).limit(20);
+    if(notificationError) setError(notificationError.message); else setReviewNotifications(notificationRows??[]);
     const {data:seller,error:sellerError} = await db.schema("seller").from("seller_profiles").select("id,onboarding_status,account_status").eq("user_id",session.user.id).maybeSingle();
     if (sellerError) { setError(sellerError.message); setLoading(false); return; }
     if (!seller) { navigate("/seller/onboarding",{replace:true}); return; }
     if (seller.onboarding_status !== "approved" || seller.account_status !== "active") { navigate("/seller/onboarding",{replace:true}); return; }
     setSellerId(seller.id);
     const {data,error:productError} = await db.schema("catalog").from("products").select("id,seller_id,title,description,category,brand,sku,price,mrp,stock_quantity,image_urls,status,created_at,updated_at").eq("seller_id",seller.id).order("created_at",{ascending:false});
-    if (productError) setError(productError.message); else { const rows=(data ?? []) as Product[]; setProducts(rows); if(rows.length){ const {data:movements}=await db.schema("catalog").from("inventory_movements").select("id,product_id,quantity_before,quantity_after,quantity_delta,movement_type,created_at").in("product_id",rows.map(p=>p.id)).order("created_at",{ascending:false}).limit(200); const grouped:Record<string,any[]>={}; (movements||[]).forEach((m:any)=>{(grouped[m.product_id] ||= []).push(m);}); setInventoryHistory(grouped); }}
+    if (productError) setError(productError.message); else {
+      const rows=(data ?? []) as Product[];
+      let revisionRows:any[]=[];
+      if(rows.length){
+        const {data:revisions,error:revisionError}=await db.schema("catalog").from("product_revisions")
+          .select("id,product_id,revision_number,review_status,seller_change_summary,review_comment,submitted_at,reviewed_at")
+          .in("product_id",rows.map(p=>p.id)).order("submitted_at",{ascending:false});
+        if(revisionError) setError(revisionError.message);
+        else revisionRows=revisions??[];
+      }
+      const latestByProduct=new Map<string,any>();
+      revisionRows.forEach((r:any)=>{if(!latestByProduct.has(r.product_id))latestByProduct.set(r.product_id,r);});
+      const enriched=rows.map(p=>{const r=latestByProduct.get(p.id);return {...p,latest_revision_status:r?.review_status??null,latest_revision_summary:r?.seller_change_summary??null,latest_revision_comment:r?.review_comment??null,latest_revision_at:r?.submitted_at??null};});
+      setProducts(enriched);
+      if(rows.length){
+        const {data:movements}=await db.schema("catalog").from("inventory_movements").select("id,product_id,quantity_before,quantity_after,quantity_delta,movement_type,created_at").in("product_id",rows.map(p=>p.id)).order("created_at",{ascending:false}).limit(200);
+        const grouped:Record<string,any[]>={}; (movements||[]).forEach((m:any)=>{(grouped[m.product_id] ||= []).push(m);}); setInventoryHistory(grouped);
+      }
+    }
     setLoading(false);
   }
 
   useEffect(()=>{ void load(); },[]);
+
+  async function markNotificationRead(notificationId:string) {
+    setNotificationBusy(notificationId);
+    const {error:readError}=await db.schema("seller").from("product_review_notifications")
+      .update({read_at:new Date().toISOString()}).eq("id",notificationId).is("read_at",null);
+    if(readError) toast({title:"Could not mark notification read",description:readError.message,variant:"destructive"});
+    else setReviewNotifications(prev=>prev.map(n=>n.id===notificationId?{...n,read_at:new Date().toISOString()}:n));
+    setNotificationBusy(null);
+  }
 
   async function uploadImages(event:ChangeEvent<HTMLInputElement>) {
     const files = Array.from(event.target.files ?? []);
@@ -95,19 +127,54 @@ export default function SellerProducts() {
     setSaving(true);
     const payload = {title:form.title.trim(),description:form.description.trim(),category:form.category.trim(),brand:form.brand.trim(),sku:form.sku.trim()||null,price,mrp,image_urls:images};
     const editingProduct = editingId ? products.find(p=>p.id===editingId) : null;
-    const majorChanged = !!editingProduct && (
-      editingProduct.title !== payload.title || editingProduct.category !== payload.category ||
+    const approvedEdit = !!editingProduct && ["approved","paused"].includes(editingProduct.status);
+    const detailChanged = !!editingProduct && (
+      editingProduct.title !== payload.title ||
+      (editingProduct.description ?? "") !== payload.description ||
+      editingProduct.category !== payload.category ||
+      (editingProduct.brand ?? "") !== payload.brand ||
+      (editingProduct.sku ?? null) !== payload.sku ||
       Number(editingProduct.price) !== price ||
       (editingProduct.mrp == null ? null : Number(editingProduct.mrp)) !== mrp ||
       JSON.stringify(editingProduct.image_urls||[]) !== JSON.stringify(images)
     );
-    const approvedEdit = !!editingProduct && ["approved","paused"].includes(editingProduct.status);
-    if (approvedEdit && majorChanged && !confirmedSummary) { setReviewConfirmOpen(true); setSaving(false); return; }
-    const query = approvedEdit
-      ? db.rpc("update_seller_marketplace_product_details",{p_product_id:editingId,p_title:payload.title,p_description:payload.description,p_category:payload.category,p_brand:payload.brand,p_sku:payload.sku,p_price:price,p_mrp:mrp,p_image_urls:images,p_change_summary:confirmedSummary||null})
-      : editingId
-        ? db.schema("catalog").from("products").update({...payload,stock_quantity:stock,status:submit?"pending_review":editingProduct?.status||"draft"}).eq("id",editingId).eq("seller_id",sellerId)
-        : db.schema("catalog").from("products").insert({...payload,seller_id:sellerId,stock_quantity:stock,status:submit?"pending_review":"draft"});
+    if (approvedEdit && !detailChanged) {
+      toast({title:"No product detail changes",description:"Use the separate inventory controls to change stock. Edit product details before submitting a revision.",variant:"destructive"});
+      setSaving(false);
+      return;
+    }
+    if (approvedEdit && detailChanged && !submit) {
+      toast({title:"Review required",description:"Submit product detail changes for admin review. The approved listing will remain unchanged until approval.",variant:"destructive"});
+      setSaving(false);
+      return;
+    }
+    if (approvedEdit && detailChanged && submit && !confirmedSummary) {
+      setReviewConfirmOpen(true);
+      setSaving(false);
+      return;
+    }
+
+    if (approvedEdit && detailChanged && submit) {
+      const {error:revisionError} = await db.rpc("submit_seller_product_revision",{
+        p_product_id:editingId,
+        p_proposed_data:payload,
+        p_change_summary:confirmedSummary?.trim()
+      });
+      if (revisionError) {
+        toast({title:"Could not submit revision",description:revisionError.message,variant:"destructive"});
+        setSaving(false);
+        return;
+      }
+      setForm(emptyForm); setImages([]); setEditingId(null); setFormOpen(false); setReviewConfirmOpen(false); setChangeSummary("");
+      await load();
+      toast({title:"Changes submitted for review",description:"Your approved listing remains unchanged until an admin approves this revision."});
+      setSaving(false);
+      return;
+    }
+
+    const query = editingId
+      ? db.schema("catalog").from("products").update({...payload,stock_quantity:stock,status:submit?"pending_review":editingProduct?.status||"draft"}).eq("id",editingId).eq("seller_id",sellerId)
+      : db.schema("catalog").from("products").insert({...payload,seller_id:sellerId,stock_quantity:stock,status:submit?"pending_review":"draft"});
     const {data,error:saveError} = await query.select("*").single();
     if (saveError) {
       toast({title:"Could not save product",description:saveError.message,variant:"destructive"});
@@ -115,7 +182,7 @@ export default function SellerProducts() {
       const saved = data as Product;
       setProducts(prev=>editingId ? prev.map(p=>p.id===saved.id?saved:p) : [saved,...prev]);
       setForm(emptyForm); setImages([]); setEditingId(null); setFormOpen(false); setReviewConfirmOpen(false); setChangeSummary("");
-      toast({title:submit?"Product submitted for review":editingId?"Product updated":"Draft saved",description:submit?"Your updated product has been submitted for admin review.":editingId?(majorChanged?"Major changes submitted for admin review.":"Minor details saved without a new review."):"You can edit and submit it later."});
+      toast({title:submit?"Product submitted for review":editingId?"Product updated":"Draft saved",description:submit?"Your updated product has been submitted for admin review.":editingId?"Product updated.":"You can edit and submit it later."});
     }
     setSaving(false);
   }
@@ -208,6 +275,10 @@ export default function SellerProducts() {
         <div className="flex items-center gap-3"><div className="rounded-xl bg-primary/10 p-3"><Package className="h-7 w-7 text-primary"/></div><div><p className="text-sm text-muted-foreground">SELLER PORTAL</p><h1 className="text-3xl font-bold">My Products</h1><p className="text-muted-foreground">Create listings and submit them for admin approval.</p></div></div>
         <Button variant="outline" asChild><Link to="/seller/dashboard"><ArrowLeft className="mr-2 h-4 w-4"/> Seller dashboard</Link></Button>
       </div>
+      {reviewNotifications.length>0&&<section className="space-y-3">
+        <div><h2 className="text-xl font-bold">Review notifications</h2><p className="text-sm text-muted-foreground">Updates from the ShopHub product review team.</p></div>
+        {reviewNotifications.map((n:any)=><Card key={n.id} className={!n.read_at?"border-primary/30 bg-primary/[0.02]":""}><CardContent className="flex flex-wrap items-start justify-between gap-3 p-4"><div className="min-w-0 flex-1"><div className="flex flex-wrap items-center gap-2"><p className="font-semibold">{n.title}</p>{!n.read_at&&<Badge variant="secondary">New</Badge>}</div><p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{n.body}</p><p className="mt-2 text-xs text-muted-foreground">{new Date(n.created_at).toLocaleString()}</p></div>{!n.read_at&&<Button size="sm" variant="outline" disabled={notificationBusy===n.id} onClick={()=>void markNotificationRead(n.id)}>{notificationBusy===n.id?"Saving…":"Mark read"}</Button>}</CardContent></Card>)}
+      </section>}
       <div className="grid gap-3 sm:grid-cols-3">
         <Card><CardContent className="flex items-center gap-3 p-4"><div className="rounded-lg bg-primary/10 p-2 text-primary"><Boxes className="h-5 w-5"/></div><div><p className="text-sm text-muted-foreground">Total listings</p><p className="text-2xl font-bold">{products.length}</p></div></CardContent></Card>
         <Card><CardContent className="flex items-center gap-3 p-4"><div className="rounded-lg bg-amber-500/10 p-2 text-amber-600"><AlertTriangle className="h-5 w-5"/></div><div><p className="text-sm text-muted-foreground">Low stock (1–5)</p><p className="text-2xl font-bold">{lowStockProducts.length}</p></div></CardContent></Card>
@@ -216,7 +287,7 @@ export default function SellerProducts() {
       {(lowStockProducts.length > 0 || outOfStockProducts.length > 0) && <Card className="border-amber-500/40"><CardContent className="flex gap-3 p-4"><AlertTriangle className="mt-0.5 h-5 w-5 shrink-0 text-amber-600"/><div><p className="font-semibold">Inventory needs attention</p><p className="text-sm text-muted-foreground">{outOfStockProducts.length > 0 ? `${outOfStockProducts.length} approved product(s) are out of stock. ` : ""}{lowStockProducts.length > 0 ? `${lowStockProducts.length} approved product(s) have 5 or fewer units remaining.` : ""} Edit the listing to update stock after replenishment.</p></div></CardContent></Card>}
       {error && <Card className="border-destructive"><CardContent className="p-4 text-sm text-destructive">{error}</CardContent></Card>}
       {formOpen ? <Card>
-        <CardHeader><CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5"/> {editingId?"Edit product":"Add a product"}</CardTitle><CardDescription>{editingId ? "Minor changes to description, brand, or SKU save without review. Changes to title, category, price, MRP, or images require admin review. Stock is managed separately." : "Products remain unpublished until an admin approves them. Use accurate product details and images you have rights to use."}</CardDescription></CardHeader>
+        <CardHeader><CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5"/> {editingId?"Edit product":"Add a product"}</CardTitle><CardDescription>{editingId ? "Minor changes to description, brand, or SKU save without review. Changes to product details require admin review. Approved listing data remains live until the revision is approved. Stock is managed separately." : "Products remain unpublished until an admin approves them. Use accurate product details and images you have rights to use."}</CardDescription></CardHeader>
         <CardContent className="space-y-5">
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2"><Label htmlFor="product-title">Product name *</Label><Input id="product-title" maxLength={160} value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="e.g. Natural Coir Scrubber Pack of 5"/></div>
@@ -232,7 +303,7 @@ export default function SellerProducts() {
             {images.length>0&&<div className="flex flex-wrap gap-3">{images.map((url,i)=><div key={url} className="relative"><img src={url} alt={`Product image ${i+1}`} className="h-20 w-20 rounded-md border object-cover"/><Button type="button" size="icon" variant="destructive" className="absolute -right-2 -top-2 h-6 w-6" onClick={()=>setImages(prev=>prev.filter(x=>x!==url))} aria-label="Remove image"><Trash2 className="h-3 w-3"/></Button></div>)}</div>}
             <p className="text-xs text-muted-foreground">Images are uploaded privately by seller folder and served from the product image bucket.</p>
           </div>
-          <div className="flex flex-wrap gap-2"><Button onClick={()=>void saveProduct(false)} disabled={saving||uploading}><Plus className="mr-2 h-4 w-4"/>{saving?"Saving…":editingId?"Save changes":"Save draft"}</Button>{!(editingId && products.some(p=>p.id===editingId && ["approved","paused"].includes(p.status)))&&<Button variant="outline" onClick={()=>void saveProduct(true)} disabled={saving||uploading}><Send className="mr-2 h-4 w-4"/>Submit for review</Button>}{editingId&&<Button variant="ghost" onClick={cancelEdit} disabled={saving||uploading}>Cancel edit</Button>}</div>
+          <div className="flex flex-wrap gap-2">{!(editingId && products.some(p=>p.id===editingId && ["approved","paused"].includes(p.status)))&&<Button onClick={()=>void saveProduct(false)} disabled={saving||uploading}><Plus className="mr-2 h-4 w-4"/>{saving?"Saving…":editingId?"Save changes":"Save draft"}</Button>}{editingId && products.some(p=>p.id===editingId && ["approved","paused"].includes(p.status)) ? <Button onClick={()=>void saveProduct(true)} disabled={saving||uploading}><Send className="mr-2 h-4 w-4"/>{saving?"Submitting…":"Save & submit for review"}</Button> : <Button variant="outline" onClick={()=>void saveProduct(true)} disabled={saving||uploading}><Send className="mr-2 h-4 w-4"/>Submit for review</Button>}{editingId&&<Button variant="ghost" onClick={cancelEdit} disabled={saving||uploading}>Cancel edit</Button>}</div>
         </CardContent>
       </Card> : <Button type="button" className="w-full sm:w-auto" onClick={()=>{setEditingId(null);setForm(emptyForm);setImages([]);setFormOpen(true);}}><Plus className="mr-2 h-4 w-4"/> Add a product</Button>}
       <section className="space-y-3"><div><h2 className="text-xl font-bold">Your listings ({products.length})</h2><p className="text-sm text-muted-foreground">Only your own products are shown here.</p></div>
@@ -243,6 +314,12 @@ export default function SellerProducts() {
           {expandedProductId===p.id&&<div className="mt-3 space-y-3 border-t pt-3">
           {p.status==="paused"&&<p className="text-sm text-amber-700">Paused — hidden from shoppers. Existing orders are unaffected.</p>}
           {p.status==="archived"&&<p className="mt-2 text-sm text-muted-foreground">Archived — hidden from shoppers. Order history is preserved.</p>}
+          {p.latest_revision_status&&<div className="mt-3 rounded-lg border p-3">
+            <div className="flex flex-wrap items-center gap-2"><span className="text-sm font-semibold">Latest edit review</span><Badge variant={p.latest_revision_status==="approved"?"default":p.latest_revision_status==="rejected"?"destructive":p.latest_revision_status==="pending_review"?"secondary":"outline"}>{pretty(p.latest_revision_status)}</Badge></div>
+            {p.latest_revision_at&&<p className="mt-1 text-xs text-muted-foreground">Submitted {new Date(p.latest_revision_at).toLocaleString()}</p>}
+            {p.latest_revision_summary&&<><p className="mt-2 text-xs font-medium text-muted-foreground">Your explanation</p><p className="whitespace-pre-wrap text-sm">{p.latest_revision_summary}</p></>}
+            {p.latest_revision_comment&&<><p className="mt-2 text-xs font-medium text-muted-foreground">Admin feedback</p><p className="whitespace-pre-wrap text-sm">{p.latest_revision_comment}</p></>}
+          </div>}
           {(p.status==="approved"||p.status==="paused")&&<div className="mt-3 flex flex-wrap gap-2">
             <Button size="sm" variant="outline" onClick={()=>editProduct(p)}><Package className="mr-2 h-4 w-4"/>Edit details</Button>
             {p.status==="approved"&&<Button size="sm" variant="outline" onClick={()=>setConfirmAction({product:p,action:"pause"})}><Pause className="mr-2 h-4 w-4"/>Pause listing</Button>}
