@@ -15,7 +15,7 @@ import { SellerPortalLayout } from "@/components/seller/SellerPortalLayout";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const db = supabase as any;
-type Product = { id:string; title:string; description:string; category:string; brand:string; sku:string|null; price:number; mrp:number|null; stock_quantity:number; image_urls:string[]; status:string; created_at:string; latest_revision_status?:string|null; latest_revision_summary?:string|null; latest_revision_comment?:string|null; latest_revision_at?:string|null };
+type Product = { id:string; title:string; description:string; category:string; brand:string; sku:string|null; price:number; mrp:number|null; stock_quantity:number; image_urls:string[]; status:string; review_notes?:string|null; created_at:string; latest_revision_status?:string|null; latest_revision_summary?:string|null; latest_revision_comment?:string|null; latest_revision_at?:string|null };
 const emptyForm = { title:"", description:"", category:"", brand:"", sku:"", price:"", mrp:"", stock_quantity:"0" };
 const productCategories = ["Fashion & Clothing","Jewellery & Accessories","Beauty & Personal Care","Home & Kitchen","Kitchen & Dining","Grocery & Food","Electronics","Mobile Accessories","Toys & Games","Baby & Kids","Bags & Luggage","Footwear","Sports & Fitness","Automotive","Books & Stationery","Pet Supplies","Handmade & Crafts","Other"];
 const pretty = (s:string) => s.replaceAll("_"," ").replace(/\b\w/g,c=>c.toUpperCase());
@@ -58,7 +58,7 @@ export default function SellerProducts() {
     if (!seller) { navigate("/seller/onboarding",{replace:true}); return; }
     if (seller.onboarding_status !== "approved" || seller.account_status !== "active") { navigate("/seller/onboarding",{replace:true}); return; }
     setSellerId(seller.id);
-    const {data,error:productError} = await db.schema("catalog").from("products").select("id,seller_id,title,description,category,brand,sku,price,mrp,stock_quantity,image_urls,status,created_at,updated_at").eq("seller_id",seller.id).order("created_at",{ascending:false});
+    const {data,error:productError} = await db.schema("catalog").from("products").select("id,seller_id,title,description,category,brand,sku,price,mrp,stock_quantity,image_urls,status,review_notes,created_at,updated_at").eq("seller_id",seller.id).order("created_at",{ascending:false});
     if (productError) setError(productError.message); else {
       const rows=(data ?? []) as Product[];
       let revisionRows:any[]=[];
@@ -314,6 +314,7 @@ export default function SellerProducts() {
           {expandedProductId===p.id&&<div className="mt-3 space-y-3 border-t pt-3">
           {p.status==="paused"&&<p className="text-sm text-amber-700">Paused — hidden from shoppers. Existing orders are unaffected.</p>}
           {p.status==="archived"&&<p className="mt-2 text-sm text-muted-foreground">Archived — hidden from shoppers. Order history is preserved.</p>}
+          {(p.status==="changes_requested"||p.status==="rejected")&&p.review_notes&&<div className="mt-3 rounded-lg border border-amber-500/40 bg-amber-500/5 p-3"><p className="text-sm font-semibold">Admin feedback on your submission</p><p className="mt-1 whitespace-pre-wrap text-sm">{p.review_notes}</p><p className="mt-2 text-xs text-muted-foreground">Update the product details above, then submit it again for review.</p></div>}
           {p.latest_revision_status&&<div className="mt-3 rounded-lg border p-3">
             <div className="flex flex-wrap items-center gap-2"><span className="text-sm font-semibold">Latest edit review</span><Badge variant={p.latest_revision_status==="approved"?"default":p.latest_revision_status==="rejected"?"destructive":p.latest_revision_status==="pending_review"?"secondary":"outline"}>{pretty(p.latest_revision_status)}</Badge></div>
             {p.latest_revision_at&&<p className="mt-1 text-xs text-muted-foreground">Submitted {new Date(p.latest_revision_at).toLocaleString()}</p>}
