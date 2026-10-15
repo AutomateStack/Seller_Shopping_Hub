@@ -14,7 +14,7 @@ import { AdminSidebar } from "@/components/admin/AdminSidebar";
 import { ArrowLeft, CheckCircle2, Loader2, Package, RefreshCw, ShieldAlert, XCircle } from "lucide-react";
 
 const db = supabase as any;
-type Product = {id:string;seller_id:string;title:string;description:string;category:string;brand:string;sku:string|null;price:number;mrp:number|null;stock_quantity:number;image_urls:string[];status:string;review_notes:string|null;seller_change_summary?:string|null;created_at:string;seller?:{business_name?:string|null;store_name?:string|null;contact_name?:string|null}|null;};
+type Product = {id:string;seller_id:string;title:string;description:string;category:string;brand:string;sku:string|null;price:number;mrp:number|null;stock_quantity:number;image_urls:string[];status:string;review_notes:string|null;seller_change_summary?:string|null;created_at:string;review_history?:any[];seller?:{business_name?:string|null;store_name?:string|null;contact_name?:string|null}|null;};
 const pretty=(s:string)=>s.replaceAll("_"," ").replace(/\b\w/g,c=>c.toUpperCase());
 
 export default function AdminProductReview() {
@@ -40,7 +40,7 @@ export default function AdminProductReview() {
       const noteMap=new Map((noteRows??[]).map((n:any)=>[n.product_id,n]));
       const sellerMap=new Map((sellers??[]).map((s:any)=>[s.id,s]));
       const historyMap=new Map<string,any[]>();
-      (historyRows??[]).forEach((event:any)=>{(historyMap.get(event.product_id)??historyMap.set(event.product_id,[]).get(event.product_id)!).push(event);});
+      (historyRows??[]).forEach((event:any)=>{const existing=historyMap.get(event.product_id)??[];existing.push(event);historyMap.set(event.product_id,existing);});
       return rows.map(p=>({...p,seller:sellerMap.get(p.seller_id),review_notes:noteMap.get(p.id)?.review_notes??null,seller_change_summary:noteMap.get(p.id)?.seller_change_summary??null,review_history:historyMap.get(p.id)??[]}));
     }
   });
@@ -127,7 +127,7 @@ export default function AdminProductReview() {
         <p className="whitespace-pre-wrap text-sm">{p.description||"No description provided."}</p>
         <div className="grid gap-3 sm:grid-cols-3"><div><p className="text-xs text-muted-foreground">Selling price</p><p className="font-semibold">₹{Number(p.price).toFixed(2)}</p></div><div><p className="text-xs text-muted-foreground">MRP</p><p>{p.mrp? `₹${Number(p.mrp).toFixed(2)}`:"Not provided"}</p></div><div><p className="text-xs text-muted-foreground">Stock</p><p>{p.stock_quantity}</p></div><div><p className="text-xs text-muted-foreground">SKU</p><p>{p.sku||"Not provided"}</p></div></div>
         {p.seller_change_summary&&<div className="rounded-lg border border-primary/30 bg-primary/5 p-3"><p className="font-semibold text-sm">Seller change summary</p><p className="mt-1 whitespace-pre-wrap text-sm">{p.seller_change_summary}</p></div>}{p.review_notes&&<div className="rounded-lg bg-muted p-3 text-sm">Latest admin note: {p.review_notes}</div>}
-        {(p as any).review_history?.length>0&&<details className="rounded-lg border p-3"><summary className="cursor-pointer text-sm font-semibold">Review history ({(p as any).review_history.length})</summary><div className="mt-3 space-y-3">{(p as any).review_history.map((event:any)=><div key={event.id} className="border-l-2 pl-3"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-medium">{pretty(event.decision)}</p><time className="text-xs text-muted-foreground">{new Date(event.reviewed_at).toLocaleString()}</time></div>{event.comment&&<p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{event.comment}</p>}</div>)}</div></details>}
+        {p.review_history?.length>0&&<details className="rounded-lg border p-3"><summary className="cursor-pointer text-sm font-semibold">Review history ({(p as any).review_history.length})</summary><div className="mt-3 space-y-3">{(p as any).review_history.map((event:any)=><div key={event.id} className="border-l-2 pl-3"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-medium">{pretty(event.decision)}</p><time className="text-xs text-muted-foreground">{new Date(event.reviewed_at).toLocaleString()}</time></div>{event.comment&&<p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{event.comment}</p>}</div>)}</div></details>}
         {p.status==="pending_review"&&<div className="space-y-2 border-t pt-4"><Label htmlFor={`product-note-${p.id}`}>Review note (required for changes/rejection)</Label><Textarea id={`product-note-${p.id}`} rows={2} maxLength={2000} value={notes[p.id]??""} onChange={e=>setNotes(old=>({...old,[p.id]:e.target.value}))} placeholder="Explain the changes needed…"/><div className="flex flex-wrap gap-2"><Button disabled={mutation.isPending} onClick={()=>decide(p,"approved")}><CheckCircle2 className="mr-2 h-4 w-4"/>Approve & publish</Button><Button variant="outline" disabled={mutation.isPending} onClick={()=>decide(p,"changes_requested")}><RefreshCw className="mr-2 h-4 w-4"/>Request changes</Button><Button variant="destructive" disabled={mutation.isPending} onClick={()=>decide(p,"rejected")}><XCircle className="mr-2 h-4 w-4"/>Reject</Button></div></div>}
       </CardContent></Card>)}</div>
     </div>
