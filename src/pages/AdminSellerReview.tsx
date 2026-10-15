@@ -132,7 +132,7 @@ export default function AdminSellerReview() {
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {[
-            { label: "Awaiting review", value: counts.submitted, icon: Clock3 },
+            { label: "Awaiting review", value: counts.submitted + pendingBusinessChanges, icon: Clock3 },
             { label: "Approved", value: counts.approved, icon: CheckCircle2 },
             { label: "Changes requested", value: counts.needsChanges, icon: RefreshCw },
             { label: "Rejected", value: counts.rejected, icon: XCircle },
