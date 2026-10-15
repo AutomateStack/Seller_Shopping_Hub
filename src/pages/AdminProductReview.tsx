@@ -74,10 +74,8 @@ export default function AdminProductReview() {
   }
   const mutation=useMutation({
     mutationFn:async({id,status,note}:{id:string;status:"approved"|"rejected"|"changes_requested";note?:string})=>{
-      const {error:statusError}=await db.schema("catalog").from("products").update({status,reviewed_at:new Date().toISOString()}).eq("id",id);
-      if(statusError) throw statusError;
-      const {error:noteError}=await db.schema("catalog").from("product_review_notes").upsert({product_id:id,review_notes:note??null,updated_at:new Date().toISOString()},{onConflict:"product_id"});
-      if(noteError) throw noteError;
+      const {error}=await db.rpc("review_seller_product_submission",{p_product_id:id,p_decision:status,p_comment:note??null});
+      if(error) throw error;
     },
     onSuccess:async()=>{toast({title:"Product review saved",description:"The seller can see the updated status in My Products."});await client.invalidateQueries({queryKey:["admin-product-review"]});},
     onError:(e:Error)=>toast({title:"Could not save review",description:e.message,variant:"destructive"})
