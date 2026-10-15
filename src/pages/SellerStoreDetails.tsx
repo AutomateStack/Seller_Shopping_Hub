@@ -11,12 +11,12 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Loader2, Save, Send, ShieldCheck, Store } from "lucide-react";
+import { ArrowLeft, Camera, Loader2, Save, Send, ShieldCheck, Store, Trash2 } from "lucide-react";
 
 const db = supabase as any;
 type Seller = {
   id: string; store_name: string; store_slug: string; contact_name: string;
-  contact_email: string | null; contact_phone: string | null; business_type: string;
+  contact_email: string | null; contact_phone: string | null; profile_photo_url?: string | null; business_type: string;
   business_name: string | null; gstin: string | null; onboarding_status: string; account_status: string;
 };
 type ChangeRequest = {
@@ -49,6 +49,7 @@ export default function SellerStoreDetails() {
   const [gstin, setGstin] = useState("");
   const [loading, setLoading] = useState(true);
   const [savingContact, setSavingContact] = useState(false);
+  const [savingPhoto, setSavingPhoto] = useState(false);
   const [submittingChanges, setSubmittingChanges] = useState(false);
 
   const load = async () => {
@@ -79,6 +80,36 @@ export default function SellerStoreDetails() {
   useEffect(() => { void load(); }, [navigate]);
 
   const pendingRequest = requests.some(request => request.status === "pending");
+  const saveProfilePhoto = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = "";
+    if (!file || !seller) return;
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) { toast({ title: "Unsupported image", description: "Choose a JPG, PNG, or WebP image.", variant: "destructive" }); return; }
+    if (file.size > 3 * 1024 * 1024) { toast({ title: "Image is too large", description: "Choose an image smaller than 3 MB.", variant: "destructive" }); return; }
+    setSavingPhoto(true);
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) { setSavingPhoto(false); return; }
+    const extension = file.type === "image/png" ? "png" : file.type === "image/webp" ? "webp" : "jpg";
+    const path = session.user.id + "/profile-" + Date.now() + "." + extension;
+    const { error: uploadError } = await supabase.storage.from("seller-profile-photos").upload(path, file, { upsert: false, contentType: file.type, cacheControl: "3600" });
+    if (uploadError) { setSavingPhoto(false); toast({ title: "Photo upload failed", description: uploadError.message, variant: "destructive" }); return; }
+    const { data: publicData } = supabase.storage.from("seller-profile-photos").getPublicUrl(path);
+    const { error } = await db.rpc("update_seller_profile_photo", { p_photo_url: publicData.publicUrl });
+    setSavingPhoto(false);
+    if (error) { toast({ title: "Could not save profile photo", description: error.message, variant: "destructive" }); return; }
+    setSeller(current => current ? { ...current, profile_photo_url: publicData.publicUrl } : current);
+    toast({ title: "Profile photo updated" });
+  };
+
+  const removeProfilePhoto = async () => {
+    setSavingPhoto(true);
+    const { error } = await db.rpc("update_seller_profile_photo", { p_photo_url: null });
+    setSavingPhoto(false);
+    if (error) { toast({ title: "Could not remove profile photo", description: error.message, variant: "destructive" }); return; }
+    setSeller(current => current ? { ...current, profile_photo_url: null } : current);
+    toast({ title: "Profile photo removed", description: "Your initials will be shown instead." });
+  };
+
   const saveContact = async (event: React.FormEvent) => {
     event.preventDefault();
     setSavingContact(true);
@@ -118,6 +149,14 @@ export default function SellerStoreDetails() {
       <div id="main-content" className="mx-auto max-w-5xl space-y-6 p-4 sm:p-7">
         <Button variant="ghost" asChild><Link to="/seller/dashboard"><ArrowLeft className="mr-2 h-4 w-4" /> Back to dashboard</Link></Button>
         <div className="flex items-start gap-3"><div className="rounded-xl bg-primary/10 p-3"><Store className="h-6 w-6 text-primary" /></div><div><h1 className="text-2xl font-bold">Store details</h1><p className="text-muted-foreground">Update contact information directly and submit business identity changes for review.</p></div></div>
+
+        <Card>
+          <CardHeader><CardTitle>Profile photo</CardTitle><CardDescription>This photo appears beside your seller name. It is optional and does not require admin review.</CardDescription></CardHeader>
+          <CardContent className="flex flex-wrap items-center gap-4">
+            {seller.profile_photo_url ? <img src={seller.profile_photo_url} alt="Seller profile" className="h-20 w-20 rounded-full border object-cover" /> : <div className="flex h-20 w-20 items-center justify-center rounded-full bg-primary/10 text-2xl font-semibold text-primary">{(seller.contact_name || seller.store_name || "S").trim().slice(0, 1).toUpperCase()}</div>}
+            <div className="space-y-2"><Label htmlFor="seller-profile-photo" className="sr-only">Upload profile photo</Label><Input id="seller-profile-photo" type="file" accept="image/jpeg,image/png,image/webp" onChange={saveProfilePhoto} disabled={savingPhoto} className="max-w-sm" /><p className="text-xs text-muted-foreground">JPG, PNG or WebP · maximum 3 MB.</p><div className="flex flex-wrap gap-2"><Button type="button" disabled={savingPhoto} onClick={() => document.getElementById("seller-profile-photo")?.click()}>{savingPhoto ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Camera className="mr-2 h-4 w-4" />}Choose photo</Button>{seller.profile_photo_url && <Button type="button" variant="outline" disabled={savingPhoto} onClick={() => void removeProfilePhoto()}><Trash2 className="mr-2 h-4 w-4" />Remove photo</Button>}</div></div>
+          </CardContent>
+        </Card>
 
         <Card>
           <CardHeader><CardTitle>Contact information</CardTitle><CardDescription>These updates take effect immediately and do not require admin review.</CardDescription></CardHeader>
