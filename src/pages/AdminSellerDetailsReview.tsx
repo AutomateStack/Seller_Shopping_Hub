@@ -16,7 +16,7 @@ import { ArrowLeft, CheckCircle2, Clock3, Loader2, RefreshCw, Store, UserRound, 
 const db = supabase as any;
 type RequestRow = {
   id: string; seller_id: string; proposed_store_name: string; proposed_business_name: string | null;
-  proposed_business_type: string; proposed_gstin: string | null; status: string;
+  proposed_business_type: string; proposed_gstin: string | null; change_type?: string | null; seller_explanation?: string | null; status: string;
   review_note: string | null; submitted_at: string; reviewed_at: string | null;
 };
 type SellerRow = { id: string; store_name: string; contact_name: string; contact_email: string | null; profile_photo_url: string | null; business_name: string | null; business_type: string; gstin: string | null; };
@@ -88,6 +88,7 @@ export default function AdminSellerDetailsReview() {
                     <div><CardTitle>{seller?.store_name ?? "Seller store"} → {request.proposed_store_name}</CardTitle><CardDescription>{seller?.contact_name ?? "Seller"} · {seller?.contact_email ?? "No email"} · Submitted {dateLabel(request.submitted_at)}</CardDescription></div>
                   </div><Badge variant={request.status === "approved" ? "default" : request.status === "pending" ? "secondary" : "outline"}>{pretty(request.status)}</Badge></div></CardHeader>
             <CardContent className="space-y-4">
+              {request.seller_explanation && <div className="rounded-lg border border-primary/30 bg-primary/5 p-3"><p className="mb-1 text-sm font-semibold">Seller explanation</p><p className="whitespace-pre-wrap text-sm">{request.seller_explanation}</p>{request.change_type && <p className="mt-2 text-xs text-muted-foreground">Change type: {pretty(request.change_type)}</p>}</div>}
               <div className="grid gap-3 md:grid-cols-2"><div className="rounded-lg border p-3"><p className="mb-2 text-sm font-semibold">Current approved details</p><p className="text-sm">Store name: {seller?.store_name ?? "—"}</p><p className="text-sm">Business name: {seller?.business_name ?? "Not provided"}</p><p className="text-sm">Business type: {seller?.business_type ? pretty(seller.business_type) : "—"}</p><p className="text-sm">GSTIN: {seller?.gstin ?? "Not provided"}</p></div>
                 <div className="rounded-lg border border-primary/30 bg-primary/5 p-3"><p className="mb-2 text-sm font-semibold">Proposed details</p><p className="text-sm">Store name: {request.proposed_store_name}</p><p className="text-sm">Business name: {request.proposed_business_name ?? "Not provided"}</p><p className="text-sm">Business type: {pretty(request.proposed_business_type)}</p><p className="text-sm">GSTIN: {request.proposed_gstin ?? "Not provided"}</p></div></div>
               {request.review_note && <div className="rounded-lg bg-muted p-3 text-sm"><p className="font-medium">Latest admin note</p><p className="whitespace-pre-wrap">{request.review_note}</p></div>}
