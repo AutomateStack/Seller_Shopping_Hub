@@ -29,15 +29,19 @@ export default function AdminProductReview() {
       if(error) throw error;
       const rows=(data??[]) as Product[];
       const sellerIds=[...new Set(rows.map(p=>p.seller_id))];
-      const [{data:noteRows,error:notesError},{data:sellers,error:sellerError}]=await Promise.all([
+      const [{data:noteRows,error:notesError},{data:sellers,error:sellerError},{data:historyRows,error:historyError}]=await Promise.all([
         db.schema("catalog").from("product_review_notes").select("product_id,review_notes,seller_change_summary"),
-        sellerIds.length ? db.schema("seller").from("seller_profiles").select("id,business_name,store_name,contact_name").in("id",sellerIds) : Promise.resolve({data:[],error:null})
+        sellerIds.length ? db.schema("seller").from("seller_profiles").select("id,business_name,store_name,contact_name").in("id",sellerIds) : Promise.resolve({data:[],error:null}),
+        db.schema("catalog").from("product_submission_review_history").select("id,product_id,reviewer_id,decision,comment,reviewed_at").in("product_id",rows.map(p=>p.id)).order("reviewed_at",{ascending:false})
       ]);
       if(notesError) throw notesError;
       if(sellerError) throw sellerError;
+      if(historyError) throw historyError;
       const noteMap=new Map((noteRows??[]).map((n:any)=>[n.product_id,n]));
       const sellerMap=new Map((sellers??[]).map((s:any)=>[s.id,s]));
-      return rows.map(p=>({...p,seller:sellerMap.get(p.seller_id),review_notes:noteMap.get(p.id)?.review_notes??null,seller_change_summary:noteMap.get(p.id)?.seller_change_summary??null}));
+      const historyMap=new Map<string,any[]>();
+      (historyRows??[]).forEach((event:any)=>{(historyMap.get(event.product_id)??historyMap.set(event.product_id,[]).get(event.product_id)!).push(event);});
+      return rows.map(p=>({...p,seller:sellerMap.get(p.seller_id),review_notes:noteMap.get(p.id)?.review_notes??null,seller_change_summary:noteMap.get(p.id)?.seller_change_summary??null,review_history:historyMap.get(p.id)??[]}));
     }
   });
   const {data:revisions=[],isLoading:revisionsLoading,isError:revisionsError,error:revisionsErrorValue,refetch:refetchRevisions}=useQuery<any[]>({
@@ -122,7 +126,8 @@ export default function AdminProductReview() {
         {p.image_urls?.length>0&&<div className="flex flex-wrap gap-2">{p.image_urls.map((url,i)=><a href={url} target="_blank" rel="noreferrer" key={url}><img src={url} alt={`${p.title} image ${i+1}`} className="h-24 w-24 rounded-md border object-cover"/></a>)}</div>}
         <p className="whitespace-pre-wrap text-sm">{p.description||"No description provided."}</p>
         <div className="grid gap-3 sm:grid-cols-3"><div><p className="text-xs text-muted-foreground">Selling price</p><p className="font-semibold">₹{Number(p.price).toFixed(2)}</p></div><div><p className="text-xs text-muted-foreground">MRP</p><p>{p.mrp? `₹${Number(p.mrp).toFixed(2)}`:"Not provided"}</p></div><div><p className="text-xs text-muted-foreground">Stock</p><p>{p.stock_quantity}</p></div><div><p className="text-xs text-muted-foreground">SKU</p><p>{p.sku||"Not provided"}</p></div></div>
-        {p.seller_change_summary&&<div className="rounded-lg border border-primary/30 bg-primary/5 p-3"><p className="font-semibold text-sm">Seller change summary</p><p className="mt-1 whitespace-pre-wrap text-sm">{p.seller_change_summary}</p></div>}{p.review_notes&&<div className="rounded-lg bg-muted p-3 text-sm">Previous admin note: {p.review_notes}</div>}
+        {p.seller_change_summary&&<div className="rounded-lg border border-primary/30 bg-primary/5 p-3"><p className="font-semibold text-sm">Seller change summary</p><p className="mt-1 whitespace-pre-wrap text-sm">{p.seller_change_summary}</p></div>}{p.review_notes&&<div className="rounded-lg bg-muted p-3 text-sm">Latest admin note: {p.review_notes}</div>}
+        {(p as any).review_history?.length>0&&<details className="rounded-lg border p-3"><summary className="cursor-pointer text-sm font-semibold">Review history ({(p as any).review_history.length})</summary><div className="mt-3 space-y-3">{(p as any).review_history.map((event:any)=><div key={event.id} className="border-l-2 pl-3"><div className="flex flex-wrap items-center justify-between gap-2"><p className="text-sm font-medium">{pretty(event.decision)}</p><time className="text-xs text-muted-foreground">{new Date(event.reviewed_at).toLocaleString()}</time></div>{event.comment&&<p className="mt-1 whitespace-pre-wrap text-sm text-muted-foreground">{event.comment}</p>}</div>)}</div></details>}
         {p.status==="pending_review"&&<div className="space-y-2 border-t pt-4"><Label htmlFor={`product-note-${p.id}`}>Review note (required for changes/rejection)</Label><Textarea id={`product-note-${p.id}`} rows={2} maxLength={2000} value={notes[p.id]??""} onChange={e=>setNotes(old=>({...old,[p.id]:e.target.value}))} placeholder="Explain the changes needed…"/><div className="flex flex-wrap gap-2"><Button disabled={mutation.isPending} onClick={()=>decide(p,"approved")}><CheckCircle2 className="mr-2 h-4 w-4"/>Approve & publish</Button><Button variant="outline" disabled={mutation.isPending} onClick={()=>decide(p,"changes_requested")}><RefreshCw className="mr-2 h-4 w-4"/>Request changes</Button><Button variant="destructive" disabled={mutation.isPending} onClick={()=>decide(p,"rejected")}><XCircle className="mr-2 h-4 w-4"/>Reject</Button></div></div>}
       </CardContent></Card>)}</div>
     </div>
