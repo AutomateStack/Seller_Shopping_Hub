@@ -97,16 +97,15 @@ export default function Products() {
 
   // Seller marketplace listings are stored separately from legacy public catalog products.
   const { data: sellerListings = [], isLoading: sellerListingsLoading } = useQuery({
-    queryKey: ["approved-seller-listings", searchTerm, category],
+    queryKey: ["approved-seller-listings"],
     queryFn: async () => {
       const { data, error } = await (supabase as any)
         .schema("catalog")
         .from("products")
         .select("id,title,description,category,brand,price,mrp,stock_quantity,image_urls,created_at,seller_id")
         .eq("status", "approved")
-        .gt("stock_quantity", 0)
         .order("created_at", { ascending: false })
-        .limit(60);
+        .limit(100);
       if (error) throw error;
       const listings = data ?? [];
       const sellerIds = [...new Set(listings.map((p: any) => p.seller_id).filter(Boolean))];
@@ -120,13 +119,55 @@ export default function Products() {
         if (sellerError) throw sellerError;
         sellerById = Object.fromEntries((sellers ?? []).map((seller: any) => [seller.id, seller]));
       }
-      return listings.map((p: any) => ({ ...p, seller: sellerById[p.seller_id] ?? null })).filter((p: any) => {
-        const matchesSearch = !searchTerm || [p.title,p.description,p.brand,p.category,p.seller?.business_name,p.seller?.store_name].some((v:any) => String(v ?? "").toLowerCase().includes(searchTerm.toLowerCase()));
-        const matchesCategory = !category || category === "all" || p.category === category;
-        return matchesSearch && matchesCategory;
-      });
+      return listings.map((p: any) => ({ ...p, seller: sellerById[p.seller_id] ?? null }));
     },
   });
+
+  // Apply the same relevant discovery controls to native seller marketplace listings.
+  // Marketplace ratings and sales counts are not available in this schema yet.
+  const filteredSellerListings = useMemo(() => {
+    const term = searchTerm.trim().toLowerCase();
+    let list = sellerListings.filter((p: any) => {
+      const matchesSearch = !term || [
+        p.title, p.description, p.brand, p.category,
+        p.seller?.business_name, p.seller?.store_name, p.seller?.contact_name,
+      ].some((v: any) => String(v ?? "").toLowerCase().includes(term));
+      const matchesCategory = selectedCategories.length > 0
+        ? selectedCategories.includes(p.category)
+        : !category || category === "all" || p.category === category;
+      const matchesPrice = Number(p.price) >= priceRange[0] && Number(p.price) <= priceRange[1];
+      const matchesStock = !inStockOnly || Number(p.stock_quantity) > 0;
+      // Do not imply unrated marketplace listings satisfy a minimum-rating filter.
+      const matchesRatingAvailability = minRating === 0;
+      return matchesSearch && matchesCategory && matchesPrice && matchesStock && matchesRatingAvailability;
+    });
+
+    switch (sortBy) {
+      case "oldest":
+        list = [...list].sort((a: any, b: any) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        break;
+      case "price-asc":
+        list = [...list].sort((a: any, b: any) => Number(a.price) - Number(b.price));
+        break;
+      case "price-desc":
+        list = [...list].sort((a: any, b: any) => Number(b.price) - Number(a.price));
+        break;
+      case "name-asc":
+        list = [...list].sort((a: any, b: any) => String(a.title ?? "").localeCompare(String(b.title ?? "")));
+        break;
+      case "name-desc":
+        list = [...list].sort((a: any, b: any) => String(b.title ?? "").localeCompare(String(a.title ?? "")));
+        break;
+      default:
+        list = [...list].sort((a: any, b: any) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    }
+    return list;
+  }, [sellerListings, searchTerm, category, selectedCategories, priceRange, inStockOnly, minRating, sortBy]);
+
+  const sellerMarketplaceCategories = useMemo(
+    () => Array.from(new Set(sellerListings.map((p: any) => p.category).filter(Boolean))).sort(),
+    [sellerListings],
+  );
 
   const { data: products, isLoading } = useQuery({
     queryKey: ["products", searchTerm, category, sortBy, priceRange, activeSubcategoryId, inStockOnly, selectedCategories],
@@ -394,7 +435,7 @@ export default function Products() {
                 <div>
                   <label className="text-sm font-medium text-muted-foreground mb-2 block">Categories (multi-select)</label>
                   <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-                    {categories?.map((cat) => {
+                    {Array.from(new Set([...(categories ?? []), ...sellerMarketplaceCategories])).filter(Boolean).sort().map((cat) => {
                       const checked = selectedCategories.includes(cat!);
                       return (
                         <label key={cat} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs cursor-pointer transition-colors ${checked ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:border-primary/40"}`}>
@@ -472,14 +513,15 @@ export default function Products() {
           </div>
         )}
 
-        {sellerListings.length > 0 && (
+        {filteredSellerListings.length > 0 && (
           <section className="mb-8 space-y-4" aria-label="Seller marketplace products">
             <div>
               <h2 className="text-2xl font-bold">From our sellers</h2>
-              <p className="text-sm text-muted-foreground">Approved products from verified marketplace sellers.</p>
+              <p className="text-sm text-muted-foreground">Approved products from verified marketplace sellers. {filteredSellerListings.length} found.</p>
+              {(minRating > 0 || sortBy === "rating-desc" || sortBy === "popularity-desc") && <p className="mt-1 text-xs text-muted-foreground">Marketplace ratings and sales rankings are not available yet, so rating and popularity controls apply to catalogue products only.</p>}
             </div>
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-              {sellerListings.map((product: any) => (
+              {filteredSellerListings.map((product: any) => (
                 <Link key={product.id} to={`/marketplace/products/${product.id}`} className="block h-full"><Card className="overflow-hidden h-full transition-shadow hover:shadow-lg">
                   <div className="aspect-square overflow-hidden bg-muted">
                     <img src={product.image_urls?.[0] || "/placeholder.svg"} alt={product.title} loading="lazy" className="h-full w-full object-cover"/>
@@ -576,11 +618,11 @@ export default function Products() {
                 ) : undefined
               }
             />
-            {categories && categories.length > 0 && (
+            {(categories?.length || sellerMarketplaceCategories.length) > 0 && (
               <div className="text-center">
                 <p className="text-xs uppercase tracking-wide text-muted-foreground mb-3">Try a category</p>
                 <div className="flex flex-wrap justify-center gap-2">
-                  {categories.slice(0, 8).map((cat) => (
+                  {Array.from(new Set([...(categories ?? []), ...sellerMarketplaceCategories])).filter(Boolean).slice(0, 8).map((cat) => (
                     <Button
                       key={cat}
                       variant="outline"
