@@ -1,4 +1,6 @@
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useState } from "react";
+import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { ShoppingBag, ArrowRight, Sparkles, Star, Zap } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -6,6 +8,15 @@ import { supabase } from "@/integrations/supabase/client";
 import { OptimizedImage } from "@/components/ui/OptimizedImage";
 
 export function HeroSection() {
+  const navigate = useNavigate();
+  const [searchQuery, setSearchQuery] = useState("");
+
+  const submitSearch = (event: React.FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    const term = searchQuery.trim();
+    if (!term) return;
+    navigate(`/products?search=${encodeURIComponent(term)}`);
+  };
   // Reuse the home-products batched fetch when present so the hero doesn't
   // issue its own round trip. Falls back to a tiny query if the cache is empty
   // (e.g. Hero mounted on a non-Home page).
@@ -81,6 +92,26 @@ export function HeroSection() {
             <p className="mb-8 text-lg text-[#59404b]/85 md:text-xl max-w-xl leading-relaxed animate-fade-in-up" style={{ animationDelay: "0.4s" }}>
               Curated collections, unbeatable prices, and lightning-fast delivery — your premium shopping destination.
             </p>
+
+            <form onSubmit={submitSearch} role="search" aria-label="Find products" className="mb-8 w-full max-w-2xl animate-fade-in-up" style={{ animationDelay: "0.45s" }}>
+              <label htmlFor="home-product-search" className="mb-2 block text-sm font-semibold text-[#6b304b]">What are you looking for today?</label>
+              <div className="flex items-center gap-2 rounded-2xl border-2 border-[#f9a8c8] bg-white p-2 shadow-xl shadow-pink-900/10 transition-all focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10">
+                <Search className="ml-3 h-6 w-6 shrink-0 text-primary" aria-hidden="true" />
+                <input
+                  id="home-product-search"
+                  type="search"
+                  value={searchQuery}
+                  onChange={(event) => setSearchQuery(event.target.value)}
+                  placeholder="Search for products, brands and more"
+                  autoComplete="off"
+                  className="h-12 min-w-0 flex-1 border-0 bg-transparent text-base text-[#24151c] outline-none placeholder:text-[#9a7b89] focus:ring-0 md:text-lg"
+                />
+                <Button type="submit" size="lg" className="h-12 shrink-0 rounded-xl px-5 font-semibold shadow-md sm:px-7" disabled={!searchQuery.trim()}>
+                  Search
+                </Button>
+              </div>
+              <p className="mt-2 text-sm text-[#6b4b59]">Find your next favourite from ShopHub and our seller marketplace.</p>
+            </form>
 
             <div className="flex flex-col sm:flex-row gap-4 mb-10 animate-fade-in-up" style={{ animationDelay: "0.5s" }}>
               <Link to="/products">
