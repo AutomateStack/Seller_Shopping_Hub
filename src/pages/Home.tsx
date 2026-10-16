@@ -96,10 +96,10 @@ export default function Home() {
       />
       <AnnouncementBar />
       <Navbar />
+      <HomeProductSearch />
       <HeroSection />
       <FeaturesStrip />
       <CategoriesSection />
-      <HomeProductSearch />
       {sellerProducts.length > 0 && (
         <section className="container mx-auto px-4 py-10" aria-label="Marketplace seller products">
           <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
