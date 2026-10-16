@@ -18,12 +18,29 @@ export function HeroSection() {
     queryKey: ["hero-products"],
     queryFn: async () => {
       if (cachedHero && cachedHero.length > 0) return cachedHero;
-      const { data } = await supabase
+
+      // Prefer featured products, but keep the hero visually populated when
+      // the catalogue has no products flagged as featured.
+      const { data: featuredProducts, error: featuredError } = await supabase
         .from("products")
         .select("id, name, price, image_url, featured")
         .eq("featured", true)
+        .not("image_url", "is", null)
         .limit(3);
-      return data || [];
+
+      if (!featuredError && featuredProducts && featuredProducts.length > 0) {
+        return featuredProducts;
+      }
+
+      const { data: recentProducts, error: recentError } = await supabase
+        .from("products")
+        .select("id, name, price, image_url, featured")
+        .not("image_url", "is", null)
+        .order("created_at", { ascending: false })
+        .limit(3);
+
+      if (recentError) throw recentError;
+      return recentProducts || [];
     },
     initialData: cachedHero && cachedHero.length > 0 ? cachedHero : undefined,
     staleTime: 5 * 60 * 1000,
