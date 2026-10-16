@@ -157,9 +157,9 @@ export function HeroSection() {
             <div className="relative w-full h-[500px]">
               {heroProducts?.slice(0, 3).map((product, i) => {
                 const positions = [
-                  { top: "0%", right: "5%", rotate: "3deg", delay: "0.5s" },
-                  { top: "25%", right: "30%", rotate: "-2deg", delay: "0.7s" },
-                  { top: "45%", right: "0%", rotate: "1deg", delay: "0.9s" },
+                  { top: "34%", right: "5%", rotate: "3deg", delay: "0.5s" },
+                  { top: "43%", right: "30%", rotate: "-2deg", delay: "0.7s" },
+                  { top: "53%", right: "0%", rotate: "1deg", delay: "0.9s" },
                 ];
                 const pos = positions[i];
                 return (
@@ -186,6 +186,13 @@ export function HeroSection() {
                             responsiveWidths={[240, 480]}
                             sizes="240px"
                             priority={i === 0}
+                            onError={(event) => {
+                              const image = event.currentTarget;
+                              if (image.src !== product.image_url) {
+                                image.removeAttribute("srcset");
+                                image.src = product.image_url;
+                              }
+                            }}
                           />
                         </div>
                         <div className="p-3">
