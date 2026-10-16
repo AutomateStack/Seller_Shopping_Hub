@@ -4,6 +4,7 @@ import { ShoppingBag, ArrowRight, Sparkles, Star, Zap } from "lucide-react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { OptimizedImage } from "@/components/ui/OptimizedImage";
+import { HomeProductSearch } from "@/components/home/HomeProductSearch";
 
 export function HeroSection() {
   // Reuse the home-products batched fetch when present so the hero doesn't
@@ -47,7 +48,15 @@ export function HeroSection() {
         />
       </div>
 
-      <div className="container px-4 relative z-10">
+      <div className="absolute right-4 top-6 z-20 hidden w-[min(46%,42rem)] lg:block xl:right-8">
+        <HomeProductSearch placement="hero" />
+      </div>
+
+      <div className="absolute left-4 right-4 top-4 z-20 lg:hidden">
+        <HomeProductSearch placement="hero" />
+      </div>
+
+      <div className="container px-4 relative z-10 pt-32 lg:pt-20">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
           {/* Left content */}
           <div className="animate-fade-in-left">
