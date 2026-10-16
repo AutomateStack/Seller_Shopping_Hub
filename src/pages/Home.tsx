@@ -96,7 +96,6 @@ export default function Home() {
       />
       <AnnouncementBar />
       <Navbar />
-      <HomeProductSearch />
       <HeroSection />
       <FeaturesStrip />
       <CategoriesSection />
