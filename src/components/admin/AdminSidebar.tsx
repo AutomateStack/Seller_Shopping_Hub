@@ -9,6 +9,7 @@ const menuItems = [
   { title: "Product Review", value: "product-review", icon: Package },
   { title: "Marketplace Orders", value: "marketplace-orders", icon: ShoppingCart },
   { title: "Seller Products", value: "seller-products", icon: Package },
+  { title: "Product Management", value: "products", icon: Package },
   { title: "Categories", value: "categories", icon: FolderTree },
   { title: "Analytics", value: "analytics", icon: BarChart3 },
 ];
