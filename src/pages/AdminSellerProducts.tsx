@@ -20,9 +20,15 @@ export default function AdminSellerProducts() {
   const {data:products=[],isLoading,isError,error,refetch,isFetching} = useQuery<Product[]>({
     queryKey:["admin-seller-products"],
     queryFn:async()=>{
-      const {data,error}=await db.schema("catalog").from("products").select("id,seller_id,title,category,brand,sku,price,stock_quantity,status,image_urls,created_at,review_notes").order("created_at",{ascending:false}).limit(500);
+      // Review notes live in the related review-notes table, not catalog.products.
+      const {data,error}=await db.schema("catalog").from("products").select("id,seller_id,title,category,brand,sku,price,stock_quantity,status,image_urls,created_at").order("created_at",{ascending:false}).limit(500);
       if(error) throw error;
-      return (data??[]) as Product[];
+      const rows=(data??[]) as Omit<Product,"review_notes">[];
+      if(!rows.length) return [];
+      const {data:notes,error:notesError}=await db.schema("catalog").from("product_review_notes").select("product_id,review_notes").in("product_id",rows.map(p=>p.id));
+      if(notesError) throw notesError;
+      const noteMap=new Map((notes??[]).map((n:any)=>[n.product_id,n.review_notes]));
+      return rows.map(p=>({...p,review_notes:noteMap.get(p.id)??null}));
     }
   });
   const shown=products.filter(p=>(status==="all"||p.status===status)&&(!search.trim()||[p.title,p.category,p.brand,p.sku,p.seller_id].some(v=>v?.toLowerCase().includes(search.trim().toLowerCase()))));
