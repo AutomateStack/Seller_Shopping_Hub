@@ -48,7 +48,7 @@ export function HeroSection() {
         />
       </div>
 
-      <div className="absolute right-4 top-6 z-20 hidden w-[min(46%,42rem)] lg:block xl:right-8">
+      <div className="absolute left-1/2 top-6 z-20 hidden w-[min(68%,58rem)] -translate-x-1/2 lg:block">
         <HomeProductSearch placement="hero" />
       </div>
 
