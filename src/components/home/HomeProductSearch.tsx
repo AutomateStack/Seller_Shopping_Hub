@@ -15,11 +15,11 @@ export function HomeProductSearch() {
   };
 
   return (
-    <section className="relative z-20 -mt-2 pb-10 md:pb-14" aria-label="Search products">
+    <section className="relative z-20 border-b border-border/50 bg-background py-3 md:py-4" aria-label="Search products">
       <div className="container px-4">
-        <form onSubmit={submitSearch} role="search" aria-label="Find products" className="mx-auto w-full max-w-4xl rounded-2xl border border-[#f9a8c8]/70 bg-card p-4 shadow-lg shadow-pink-900/10 md:p-6">
-          <label htmlFor="home-product-search" className="mb-3 block text-base font-semibold text-foreground md:text-lg">What are you looking for today?</label>
-          <div className="flex items-center gap-2 rounded-2xl border-2 border-[#f9a8c8] bg-background p-2 transition-all focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10">
+        <form onSubmit={submitSearch} role="search" aria-label="Find products" className="mx-auto w-full max-w-5xl rounded-2xl border border-[#f9a8c8]/70 bg-card p-3 shadow-md shadow-pink-900/5 md:flex md:items-center md:gap-5 md:p-4">
+          <label htmlFor="home-product-search" className="mb-2 block text-sm font-semibold text-foreground md:mb-0 md:w-52 md:shrink-0 md:text-base">What are you looking for today?</label>
+          <div className="flex min-w-0 flex-1 items-center gap-2 rounded-2xl border-2 border-[#f9a8c8] bg-background p-1.5 transition-all focus-within:border-primary focus-within:ring-4 focus-within:ring-primary/10 md:p-2">
             <Search className="ml-2 h-5 w-5 shrink-0 text-primary md:ml-3 md:h-6 md:w-6" aria-hidden="true" />
             <input
               id="home-product-search"
@@ -34,7 +34,7 @@ export function HomeProductSearch() {
               Search
             </Button>
           </div>
-          <p className="mt-2 text-sm text-muted-foreground">Find your next favourite from ShopHub and our seller marketplace.</p>
+          <p className="mt-2 text-xs text-muted-foreground md:mt-0 md:w-48 md:shrink-0">Search ShopHub and seller marketplace products.</p>
         </form>
       </div>
     </section>
