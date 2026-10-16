@@ -38,6 +38,9 @@ export default function MarketplaceCartCheckout(){
  const {data:products=[],isLoading,isError:productsError,refetch:refetchProducts}=useQuery({queryKey:["marketplace-cart-products",lines.map(x=>x.product_id).join(",")],enabled:lines.length>0,queryFn:async()=>{const {data,error}=await db.schema("catalog").from("products").select("id,title,price,mrp,stock_quantity,image_urls,status").in("id",lines.map(x=>x.product_id));if(error)throw error;return data||[];}});
  const rows=useMemo(()=>lines.map(line=>({...line,product:products.find((p:any)=>p.id===line.product_id)})),[lines,products]);
  const total=rows.reduce((s:any,x:any)=>s+(x.product?Number(x.product.price)*x.quantity:0),0);
+ const itemCount=rows.reduce((sum:number,x:any)=>sum+x.quantity,0);
+ const unavailableRows=rows.filter((x:any)=>!x.product||x.product.status!=="approved"||Number(x.product.stock_quantity)<1);
+ const invalidRows=rows.filter((x:any)=>!x.product||x.product.status!=="approved"||x.quantity>Number(x.product.stock_quantity));
  const persist=(next:CartLine[])=>{setLines(next);localStorage.setItem(KEY,JSON.stringify(next));};
  const changeQty=(id:string,quantity:number)=>{if(quantity<1){persist(lines.filter(x=>x.product_id!==id));return;}persist(lines.map(x=>x.product_id===id?{...x,quantity:Math.min(quantity,99)}:x));};
  const update=(key:keyof Address,value:string)=>setAddress(a=>({...a,[key]:value}));
