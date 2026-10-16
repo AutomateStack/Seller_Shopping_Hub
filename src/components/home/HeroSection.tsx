@@ -7,43 +7,49 @@ import { OptimizedImage } from "@/components/ui/OptimizedImage";
 import { HomeProductSearch } from "@/components/home/HomeProductSearch";
 
 export function HeroSection() {
-  // Reuse the home-products batched fetch when present so the hero doesn't
-  // issue its own round trip. Falls back to a tiny query if the cache is empty
-  // (e.g. Hero mounted on a non-Home page).
-  const qc = useQueryClient();
-  const homeProducts = qc.getQueryData<any[]>(["home-products"]);
-  const cachedHero = homeProducts?.filter((p: any) => p.featured).slice(0, 3);
-
-  const { data: heroProducts } = useQuery({
+  const { data: heroProducts = [] } = useQuery({
     queryKey: ["hero-products"],
     queryFn: async () => {
-      if (cachedHero && cachedHero.length > 0) return cachedHero;
+      const db = supabase as any;
+      // The Super Admin's seller-marketplace selections take priority in the hero.
+      const { data: selected, error: selectedError } = await db.schema("catalog").from("products")
+        .select("id,title,price,image_urls")
+        .eq("status", "approved").eq("featured_on_home", true).gt("stock_quantity", 0)
+        .order("created_at", { ascending: false }).limit(100);
+      if (!selectedError) {
+        const withImages = (selected ?? []).filter((p: any) => p.image_urls?.[0]);
+        const sellerIds = [...new Set(withImages.map((p: any) => p.seller_id).filter(Boolean))];
+        // A missing optional seller lookup must not hide the selected product images.
+        const featured = withImages.slice(0, 3).map((p: any) => ({
+          id: p.id,
+          name: p.title,
+          price: Number(p.price),
+          image_url: p.image_urls[0],
+          href: `/marketplace/products/${p.id}`,
+        }));
+        if (featured.length) return featured;
+      }
 
-      // Prefer featured products, but keep the hero visually populated when
-      // the catalogue has no products flagged as featured.
-      const { data: featuredProducts, error: featuredError } = await supabase
+      // Preserve the original ShopHub catalogue hero as a fallback.
+      const { data: legacyFeatured, error: legacyFeaturedError } = await supabase
         .from("products")
-        .select("id, name, price, image_url, featured")
+        .select("id,name,price,image_url,featured")
         .eq("featured", true)
         .not("image_url", "is", null)
         .limit(3);
-
-      if (!featuredError && featuredProducts && featuredProducts.length > 0) {
-        return featuredProducts;
+      if (!legacyFeaturedError && legacyFeatured?.length) {
+        return legacyFeatured.map((p: any) => ({ ...p, href: `/products/${p.id}` }));
       }
-
-      const { data: recentProducts, error: recentError } = await supabase
+      const { data: recent, error: recentError } = await supabase
         .from("products")
-        .select("id, name, price, image_url, featured")
+        .select("id,name,price,image_url,featured")
         .not("image_url", "is", null)
         .order("created_at", { ascending: false })
         .limit(3);
-
       if (recentError) throw recentError;
-      return recentProducts || [];
+      return (recent ?? []).map((p: any) => ({ ...p, href: `/products/${p.id}` }));
     },
-    initialData: cachedHero && cachedHero.length > 0 ? cachedHero : undefined,
-    staleTime: 5 * 60 * 1000,
+    staleTime: 60 * 1000,
   });
 
   return (
@@ -168,7 +174,7 @@ export function HeroSection() {
                       animationDelay: pos.delay,
                     }}
                   >
-                    <Link to={`/products/${product.id}`}>
+                    <Link to={product.href || `/products/${product.id}`}>
                       <div className="rounded-2xl overflow-hidden bg-white/90 backdrop-blur-md border border-[#f9a8c8]/70 shadow-xl">
                         <div className="aspect-square overflow-hidden">
                           <OptimizedImage
