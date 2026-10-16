@@ -66,7 +66,7 @@ export default function Admin() {
   const queryClient = useQueryClient();
   const [isAdmin, setIsAdmin] = useState(false);
   const [authChecking, setAuthChecking] = useState(true);
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [activeTab, setActiveTab] = useState(() => new URLSearchParams(window.location.search).get("tab") || "dashboard");
   const [productForm, setProductForm] = useState<ProductForm>({
     name: "", description: "", price: "", stock: "", category: "", subcategory_id: "", image_url: "", featured: false, volume_tiers: [],
   });
