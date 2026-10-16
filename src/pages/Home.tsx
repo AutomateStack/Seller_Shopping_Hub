@@ -9,7 +9,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { HeroSection } from "@/components/home/HeroSection";
 import { FeaturesStrip } from "@/components/home/FeaturesStrip";
 import { CategoriesSection } from "@/components/home/CategoriesSection";
-import { HomeProductSearch } from "@/components/home/HomeProductSearch";
 import { SocialProofCounters } from "@/components/home/SocialProofCounters";
 import { DealsSection } from "@/components/home/DealsSection";
 
