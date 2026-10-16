@@ -38,7 +38,7 @@ export default function AdminSellerProducts() {
   });
   async function toggleHomepageFeature(product: Product) {
     setFeatureBusyId(product.id);
-    const { error } = await db.rpc("set_product_home_featured", {
+    const { error } = await db.schema("catalog").rpc("set_product_home_featured", {
       p_product_id: product.id,
       p_featured: !product.featured_on_home,
     });
