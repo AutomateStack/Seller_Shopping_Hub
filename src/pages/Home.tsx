@@ -9,6 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { HeroSection } from "@/components/home/HeroSection";
 import { FeaturesStrip } from "@/components/home/FeaturesStrip";
 import { CategoriesSection } from "@/components/home/CategoriesSection";
+import { HomeProductSearch } from "@/components/home/HomeProductSearch";
 import { SocialProofCounters } from "@/components/home/SocialProofCounters";
 import { DealsSection } from "@/components/home/DealsSection";
 
@@ -98,6 +99,7 @@ export default function Home() {
       <HeroSection />
       <FeaturesStrip />
       <CategoriesSection />
+      <HomeProductSearch />
       {sellerProducts.length > 0 && (
         <section className="container mx-auto px-4 py-10" aria-label="Marketplace seller products">
           <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
