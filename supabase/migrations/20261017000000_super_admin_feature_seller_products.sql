@@ -13,7 +13,7 @@ BEGIN
      AND NOT EXISTS (
        SELECT 1
        FROM marketplace.marketplace_admins ma
-       WHERE ma.user_id = auth.uid()
+       WHERE ma.user_id = auth.uid() AND ma.admin_role = 'super_admin'
      ) THEN
     RAISE EXCEPTION 'Only marketplace administrators can feature seller products on the homepage'
       USING ERRCODE = '42501';
@@ -43,7 +43,7 @@ DECLARE
 BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM marketplace.marketplace_admins ma
-    WHERE ma.user_id = auth.uid()
+    WHERE ma.user_id = auth.uid() AND ma.admin_role = 'super_admin'
   ) THEN
     RAISE EXCEPTION 'Only marketplace administrators can manage homepage features'
       USING ERRCODE = '42501';
