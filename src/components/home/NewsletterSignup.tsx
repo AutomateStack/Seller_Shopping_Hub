@@ -55,7 +55,7 @@ export function NewsletterSignup() {
           placeholder="Enter your email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="pl-9 bg-white/10 border-white/20 text-primary-foreground placeholder:text-primary-foreground/50"
+          className="h-12 pl-10 bg-white/15 border-2 border-white/80 text-primary-foreground placeholder:text-primary-foreground/80 shadow-sm focus-visible:border-white focus-visible:ring-2 focus-visible:ring-white/70 focus-visible:ring-offset-2 focus-visible:ring-offset-primary"
         />
       </div>
       <Button type="submit" disabled={loading} className="bg-white text-primary hover:bg-white/90 shrink-0">
