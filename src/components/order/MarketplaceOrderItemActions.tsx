@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
-import { Star, Loader2, ExternalLink } from "lucide-react";
+import { Star, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 
 const db = supabase as any;
@@ -77,9 +77,6 @@ export function MarketplaceOrderItemActions({ productId, orderStatus, productTit
   if (!productId) return <span className="text-xs text-muted-foreground">Product listing unavailable</span>;
 
   return <div className="mt-2 flex flex-wrap items-center gap-2">
-    <Button size="sm" variant="link" asChild className="h-auto p-0">
-      <Link to={`/marketplace/products/${productId}`}>View product <ExternalLink className="ml-1 h-3 w-3" /></Link>
-    </Button>
     {orderStatus === "delivered" && userId && !eligibilityLoading && !ownReviewLoading && ownReview &&
       <Badge variant="secondary">Rated {ownReview.rating}/5 <Star className="ml-1 h-3 w-3 fill-amber-400 text-amber-500" /></Badge>}
     {orderStatus === "delivered" && userId && !eligibilityLoading && !ownReviewLoading && canReview && !ownReview &&
