@@ -26,8 +26,8 @@ export default function SellerStorefront() {
   const {data:store,isLoading:storeLoading,error:storeError} = useQuery({
     queryKey:["public-seller-store",storeId],
     queryFn:async()=>{
-      const {data,error}=await db.schema("seller").from("seller_profiles")
-        .select("id,store_name,business_name,contact_name,profile_photo_url")
+      const {data,error}=await db.schema("seller").from("public_seller_profiles")
+        .select("id,store_name,business_name,profile_photo_url")
         .eq("id",storeId).maybeSingle();
       if(error) throw error;
       return data;
