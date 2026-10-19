@@ -249,15 +249,26 @@ export default function SellerMarketplaceProduct() {
                     const match = line.match(/^([\w /()-]{2,40})\s*:\s*(.+)$/);
                     return match ? { label: match[1].trim(), value: match[2].trim() } : null;
                   }).filter((item): item is { label: string; value: string } => !!item);
-                  const normalizedAttributes = new Map(attributeLines.map((item) => [item.label.toLowerCase().replace(/[^a-z]/g, ""), item.value]));
+                  const normalizeAttributeKey = (key: string) => key.toLowerCase().replace(/[^a-z]/g, "");
+                  const normalizedAttributes = new Map(attributeLines.map((item) => [normalizeAttributeKey(item.label), item.value]));
+                  const recognizedAttributeKeys = new Set([
+                    "brand", "category", "model", "modelnumber", "modelno", "colour", "color", "material", "fabric", "size", "fit",
+                    "dimensions", "dimension", "length", "width", "height", "weight", "netweight", "productweight", "careinstructions", "care",
+                    "usageinstructions", "directions", "packagecontents", "inthebox", "whatsincluded", "contents", "warranty", "guarantee",
+                    "countryoforigin", "madein", "origin", "manufacturer", "importer", "packedby", "packer", "expirydate", "expirationdate", "bestbefore",
+                  ]);
                   const findAttribute = (...keys: string[]) => {
                     for (const key of keys) {
-                      const value = normalizedAttributes.get(key.toLowerCase().replace(/[^a-z]/g, ""));
+                      const value = normalizedAttributes.get(normalizeAttributeKey(key));
                       if (value) return value;
                     }
                     return "Not provided by seller";
                   };
-                  const overviewLines = descriptionLines.filter((line) => !line.match(/^([-*•▪]|\d+[.)])\s+.+$/) && !line.match(/^[\w /()-]{2,40}\s*:\s*.+$/));
+                  const overviewLines = descriptionLines.filter((line) => {
+                    if (line.match(/^([-*•▪]|\d+[.)])\s+.+$/)) return false;
+                    const match = line.match(/^([\w /()-]{2,40})\s*:\s*(.+)$/);
+                    return !match || !recognizedAttributeKeys.has(normalizeAttributeKey(match[1]));
+                  });
                   const generalSpecs = [
                     ["Brand", product.brand || findAttribute("brand")],
                     ["Category", product.category || "Not provided by seller"],
