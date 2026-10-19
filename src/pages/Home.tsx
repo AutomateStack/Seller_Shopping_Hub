@@ -121,7 +121,7 @@ export default function Home() {
       <HeroSection />
       <FeaturesStrip />
       <CategoriesSection />
-      {sellerProducts.length > 0 && (
+      {sellerProducts.length > 0 && homeSellerFeatures.length === 0 && (
         <section className="container mx-auto px-4 py-10" aria-label="Marketplace seller products">
           <div className="mb-5 flex flex-wrap items-end justify-between gap-3">
             <div><p className="text-sm font-semibold uppercase tracking-wider text-primary">Marketplace</p><h2 className="text-2xl font-bold md:text-3xl">From our sellers</h2><p className="text-muted-foreground">Discover approved products from our seller community.</p></div>
