@@ -242,7 +242,62 @@ export default function SellerMarketplaceProduct() {
               <Button className="w-full" size="lg" disabled={product.stock_quantity < 1} onClick={addToCart}><ShoppingCart className="mr-2 h-4 w-4" />{product.stock_quantity > 0 ? `Add to cart · ₹${(Number(product.price) * quantity).toFixed(2)}` : "Out of stock"}</Button>
               <p className="text-center text-xs text-muted-foreground">Cash on Delivery is available for marketplace testing. Final stock is validated at checkout.</p>
               </CardContent></Card>
-              <div className="border-t pt-4"><h2 className="mb-3 font-semibold">Product details</h2>{descriptionLines.length ? <div className="space-y-2 text-sm leading-6 text-foreground">{descriptionLines.map((line, index) => { const bullet = line.match(/^([-*•▪]|\d+[.)])\s+(.+)$/); return bullet ? <div key={index} className="flex items-start gap-2"><span className="mt-0.5 text-primary" aria-hidden="true">•</span><p>{bullet[2]}</p></div> : <p key={index}>{line}</p>; })}</div> : <p className="text-sm text-muted-foreground">The seller has not added a product description yet.</p>}<dl className="mt-4 grid grid-cols-1 gap-2 rounded-lg bg-muted/40 p-3 text-sm sm:grid-cols-2">{product.category && <div><dt className="text-muted-foreground">Category</dt><dd className="font-medium">{product.category}</dd></div>}{product.brand && <div><dt className="text-muted-foreground">Brand</dt><dd className="font-medium">{product.brand}</dd></div>}{product.sku && <div><dt className="text-muted-foreground">Seller SKU</dt><dd className="font-medium">{product.sku}</dd></div>}<div><dt className="text-muted-foreground">Availability</dt><dd className="font-medium">{product.stock_quantity > 0 ? "In stock" : "Out of stock"}</dd></div></dl></div>
+              <div className="space-y-6 border-t pt-5">
+                {(() => {
+                  const bulletLines = descriptionLines.map((line) => line.match(/^([-*•▪]|\d+[.)])\s+(.+)$/)?.[2]?.trim()).filter((line): line is string => !!line);
+                  const attributeLines = descriptionLines.map((line) => {
+                    const match = line.match(/^([\w /()-]{2,40})\s*:\s*(.+)$/);
+                    return match ? { label: match[1].trim(), value: match[2].trim() } : null;
+                  }).filter((item): item is { label: string; value: string } => !!item);
+                  const normalizedAttributes = new Map(attributeLines.map((item) => [item.label.toLowerCase().replace(/[^a-z]/g, ""), item.value]));
+                  const findAttribute = (...keys: string[]) => {
+                    for (const key of keys) {
+                      const value = normalizedAttributes.get(key.toLowerCase().replace(/[^a-z]/g, ""));
+                      if (value) return value;
+                    }
+                    return "Not provided by seller";
+                  };
+                  const overviewLines = descriptionLines.filter((line) => !line.match(/^([-*•▪]|\d+[.)])\s+.+$/) && !line.match(/^[\w /()-]{2,40}\s*:\s*.+$/));
+                  const generalSpecs = [
+                    ["Brand", product.brand || findAttribute("brand")],
+                    ["Category", product.category || "Not provided by seller"],
+                    ["Model / model number", findAttribute("model", "model number", "model no")],
+                    ["Colour / color", findAttribute("colour", "color")],
+                    ["Material / fabric", findAttribute("material", "fabric")],
+                    ["Size / fit", findAttribute("size", "fit")],
+                    ["Seller SKU", product.sku || "Not provided by seller"],
+                  ];
+                  const practicalSpecs = [
+                    ["Dimensions", findAttribute("dimensions", "dimension", "length", "width", "height")],
+                    ["Weight", findAttribute("weight", "net weight", "product weight")],
+                    ["Care / usage instructions", findAttribute("care instructions", "care", "usage instructions", "directions")],
+                    ["Package contents", findAttribute("package contents", "in the box", "what's included", "contents")],
+                    ["Warranty", findAttribute("warranty", "guarantee")],
+                    ["Country of origin", findAttribute("country of origin", "made in", "origin")],
+                    ["Manufacturer / importer", findAttribute("manufacturer", "importer", "packed by", "packer")],
+                    ["Expiry / best-before date", findAttribute("expiry date", "expiration date", "best before")],
+                  ];
+                  const renderSpecs = (items: string[][]) => <dl className="divide-y rounded-lg border px-3">{items.map(([label, value]) => <div key={label} className="grid grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] gap-3 py-3 text-sm"><dt className="text-muted-foreground">{label}</dt><dd className={value === "Not provided by seller" ? "text-muted-foreground" : "font-medium"}>{value}</dd></div>)}</dl>;
+                  return <>
+                    <section aria-labelledby="product-overview-heading">
+                      <h2 id="product-overview-heading" className="mb-2 font-semibold">About this product</h2>
+                      {overviewLines.length ? <div className="space-y-2 text-sm leading-6 text-foreground">{overviewLines.map((line, index) => <p key={index}>{line}</p>)}</div> : <p className="text-sm text-muted-foreground">A detailed description has not been provided by the seller yet.</p>}
+                    </section>
+                    <section aria-labelledby="product-highlights-heading">
+                      <h2 id="product-highlights-heading" className="mb-2 font-semibold">Key features</h2>
+                      {bulletLines.length ? <ul className="space-y-2 text-sm leading-6">{bulletLines.map((line, index) => <li key={index} className="flex items-start gap-2"><span className="mt-0.5 text-primary" aria-hidden="true">•</span><span>{line}</span></li>)}</ul> : <p className="text-sm text-muted-foreground">Key features have not been provided by the seller yet.</p>}
+                    </section>
+                    <section aria-labelledby="product-specifications-heading">
+                      <h2 id="product-specifications-heading" className="mb-2 font-semibold">Specifications</h2>
+                      <p className="mb-3 text-xs text-muted-foreground">Only information supplied for this listing is shown as provided. Missing details are clearly marked so you can check with the seller before ordering.</p>
+                      <h3 className="mb-2 text-sm font-medium">Product information</h3>
+                      {renderSpecs(generalSpecs)}
+                      <h3 className="mb-2 mt-4 text-sm font-medium">Dimensions, care &amp; other details</h3>
+                      {renderSpecs(practicalSpecs)}
+                    </section>
+                  </>;
+                })()}
+              </div>
             </div>
           </div>
         }
