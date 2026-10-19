@@ -9,7 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, Package, Store, ShoppingCart, ChevronLeft, ChevronRight, X, Star, Loader2, ZoomIn, Minus, Plus, Truck, ShieldCheck } from "lucide-react";
+import { ArrowLeft, Package, Store, ShoppingCart, ChevronLeft, ChevronRight, X, Star, Loader2, ZoomIn, Minus, Plus, Truck, ShieldCheck, RotateCcw } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
 
 const db = supabase as any;
@@ -198,7 +198,7 @@ export default function SellerMarketplaceProduct() {
               {images.length ? <>
                 <div className="group relative overflow-hidden rounded-2xl border bg-white">
                   <button type="button" onClick={() => setLightboxOpen(true)} className="block w-full cursor-zoom-in focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary" aria-label={`View ${product.title} image full size`}>
-                    <img src={images[selectedImageIndex]} alt={product.title + " photo " + (selectedImageIndex + 1)} className="aspect-square w-full object-contain p-2 sm:p-4" />
+                    <img src={images[selectedImageIndex]} alt={product.title + " photo " + (selectedImageIndex + 1)} loading="eager" fetchPriority="high" className="aspect-square w-full object-contain p-2 sm:p-4" />
                   </button>
                   <div className="pointer-events-none absolute bottom-3 right-3 rounded-full bg-background/90 px-3 py-1.5 text-xs text-foreground shadow-sm"><ZoomIn className="mr-1 inline h-3.5 w-3.5" />Click to enlarge</div>
                   {images.length > 1 && <>
@@ -226,7 +226,7 @@ export default function SellerMarketplaceProduct() {
                   {savings > 0 && <p className="mt-1 text-sm font-medium text-emerald-700">You save ₹{savings.toFixed(2)}</p>}
                   <p className={`mt-3 flex items-center gap-2 text-sm font-medium ${product.stock_quantity > 0 ? "text-emerald-700" : "text-destructive"}`}><span className={`h-2 w-2 rounded-full ${product.stock_quantity > 0 ? "bg-emerald-500" : "bg-destructive"}`} />{product.stock_quantity > 0 ? "In stock" : "Currently unavailable"}{product.stock_quantity > 0 && <span className="font-normal text-muted-foreground">({product.stock_quantity} available)</span>}</p>
                 </div>
-                <div className="grid gap-3 border-y py-4 text-sm sm:grid-cols-2"><div className="flex items-start gap-2"><Truck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" /><div><p className="font-medium">Delivery</p><p className="text-muted-foreground">Options confirmed at checkout</p></div></div><div className="flex items-start gap-2"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" /><div><p className="font-medium">Secure ordering</p><p className="text-muted-foreground">Stock is checked again at checkout</p></div></div></div>
+                <div className="grid gap-4 border-y py-4 text-sm sm:grid-cols-2"><div className="flex items-start gap-2"><Truck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" /><div><p className="font-medium">Delivery</p><p className="text-muted-foreground">Options confirmed at checkout</p></div></div><div className="flex items-start gap-2"><RotateCcw className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" /><div><p className="font-medium">Returns</p><p className="text-muted-foreground">Request within 2 days of delivery</p></div></div><div className="flex items-start gap-2 sm:col-span-2"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" /><div><p className="font-medium">Secure ordering</p><p className="text-muted-foreground">Stock is checked again at checkout</p></div></div></div>
               
               <Link to={product.seller_id ? `/store/${product.seller_id}` : "/products"} className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
                 <Card className="transition-colors hover:border-primary/50"><CardContent className="flex items-center gap-3 p-4">{store?.profile_photo_url ? <img src={store.profile_photo_url} alt="" className="h-12 w-12 rounded-full border object-cover" /> : <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary"><Store className="h-5 w-5" /></div>}<div><p className="font-medium">{store?.business_name || store?.store_name || store?.contact_name || "Seller shop"}</p><p className="text-sm text-muted-foreground">{store?.business_name ? "Business seller" : store?.store_name ? "ShopHub seller" : "Seller"} · View shop and products</p></div></CardContent></Card>
@@ -239,7 +239,7 @@ export default function SellerMarketplaceProduct() {
                   <Button type="button" variant="ghost" size="icon" className="h-9 w-9" aria-label="Increase quantity" disabled={quantity >= Math.min(99, product.stock_quantity)} onClick={() => setQuantity((current) => Math.min(Math.min(99, product.stock_quantity), current + 1))}><Plus className="h-4 w-4" /></Button>
                 </div>
               </div>
-              <Button className="w-full" size="lg" disabled={product.stock_quantity < 1} onClick={addToCart}><ShoppingCart className="mr-2 h-4 w-4" />{product.stock_quantity > 0 ? "Add to cart" : "Out of stock"}</Button>
+              <Button className="w-full" size="lg" disabled={product.stock_quantity < 1} onClick={addToCart}><ShoppingCart className="mr-2 h-4 w-4" />{product.stock_quantity > 0 ? `Add to cart · ₹${(Number(product.price) * quantity).toFixed(2)}` : "Out of stock"}</Button>
               <p className="text-center text-xs text-muted-foreground">Cash on Delivery is available for marketplace testing. Final stock is validated at checkout.</p>
               </CardContent></Card>
               <div className="border-t pt-4"><h2 className="mb-3 font-semibold">Product details</h2>{descriptionLines.length ? <div className="space-y-2 text-sm leading-6 text-foreground">{descriptionLines.map((line, index) => { const bullet = line.match(/^([-*•▪]|\d+[.)])\s+(.+)$/); return bullet ? <div key={index} className="flex items-start gap-2"><span className="mt-0.5 text-primary" aria-hidden="true">•</span><p>{bullet[2]}</p></div> : <p key={index}>{line}</p>; })}</div> : <p className="text-sm text-muted-foreground">The seller has not added a product description yet.</p>}<dl className="mt-4 grid grid-cols-1 gap-2 rounded-lg bg-muted/40 p-3 text-sm sm:grid-cols-2">{product.category && <div><dt className="text-muted-foreground">Category</dt><dd className="font-medium">{product.category}</dd></div>}{product.brand && <div><dt className="text-muted-foreground">Brand</dt><dd className="font-medium">{product.brand}</dd></div>}{product.sku && <div><dt className="text-muted-foreground">Seller SKU</dt><dd className="font-medium">{product.sku}</dd></div>}<div><dt className="text-muted-foreground">Availability</dt><dd className="font-medium">{product.stock_quantity > 0 ? "In stock" : "Out of stock"}</dd></div></dl></div>
