@@ -1,10 +1,10 @@
-import { Truck, Shield, CreditCard, ShoppingBag } from "lucide-react";
+import { Store, ShieldCheck, Star, PackageCheck } from "lucide-react";
 
 const features = [
-  { icon: Truck, title: "Free Delivery", desc: "Orders above ₹499" },
-  { icon: Shield, title: "Secure Payment", desc: "100% protected" },
-  { icon: CreditCard, title: "Easy Returns", desc: "7-day hassle-free" },
-  { icon: ShoppingBag, title: "Quality Products", desc: "Curated items only" },
+  { icon: Store, title: "Seller Marketplace", desc: "Discover independent stores" },
+  { icon: ShieldCheck, title: "Secure Checkout", desc: "A clear, guided order flow" },
+  { icon: Star, title: "Buyer Reviews", desc: "Verified-purchase ratings" },
+  { icon: PackageCheck, title: "Stock Checks", desc: "Availability checked at checkout" },
 ];
 
 export function FeaturesStrip() {
