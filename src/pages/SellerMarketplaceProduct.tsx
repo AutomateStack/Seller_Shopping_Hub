@@ -73,8 +73,8 @@ export default function SellerMarketplaceProduct() {
   const { data: store } = useQuery({
     queryKey: ["seller-store-for-product", product?.seller_id],
     queryFn: async () => {
-      const { data, error } = await db.schema("seller").from("seller_profiles")
-        .select("store_name,store_slug,business_name,contact_name,profile_photo_url")
+      const { data, error } = await db.schema("seller").from("public_seller_profiles")
+        .select("id,store_name,business_name,profile_photo_url")
         .eq("id", product.seller_id).maybeSingle();
       if (error) throw error;
       return data;
