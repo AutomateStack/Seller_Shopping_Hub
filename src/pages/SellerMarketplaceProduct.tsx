@@ -74,7 +74,7 @@ export default function SellerMarketplaceProduct() {
     queryKey: ["seller-store-for-product", product?.seller_id],
     queryFn: async () => {
       const { data, error } = await db.schema("seller").from("seller_profiles")
-        .select("id,store_name,business_name,contact_name,profile_photo_url")
+        .select("store_name,store_slug,business_name,contact_name,profile_photo_url")
         .eq("id", product.seller_id).maybeSingle();
       if (error) throw error;
       return data;
@@ -229,7 +229,7 @@ export default function SellerMarketplaceProduct() {
                 <div className="grid gap-3 border-y py-4 text-sm sm:grid-cols-2"><div className="flex items-start gap-2"><Truck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" /><div><p className="font-medium">Delivery</p><p className="text-muted-foreground">Options confirmed at checkout</p></div></div><div className="flex items-start gap-2"><ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" /><div><p className="font-medium">Secure ordering</p><p className="text-muted-foreground">Stock is checked again at checkout</p></div></div></div>
               
               <Link to={product.seller_id ? `/store/${product.seller_id}` : "/products"} className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
-                <Card className="transition-colors hover:border-primary/50"><CardContent className="flex items-center gap-3 p-4">{store?.profile_photo_url ? <img src={store.profile_photo_url} alt="" className="h-12 w-12 rounded-full border object-cover" /> : <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary"><Store className="h-5 w-5" /></div>}<div className="min-w-0 flex-1"><p className="truncate font-medium">{store?.business_name || store?.store_name || store?.contact_name || "Seller shop"}</p><p className="text-sm text-muted-foreground">Seller · View shop and products</p></div><span className="shrink-0 text-xs font-medium text-primary">View shop</span></CardContent></Card>
+                <Card className="transition-colors hover:border-primary/50"><CardContent className="flex items-center gap-3 p-4">{store?.profile_photo_url ? <img src={store.profile_photo_url} alt="" className="h-12 w-12 rounded-full border object-cover" /> : <div className="flex h-12 w-12 items-center justify-center rounded-full bg-primary/10 text-primary"><Store className="h-5 w-5" /></div>}<div><p className="font-medium">{store?.business_name || store?.store_name || store?.contact_name || "Seller shop"}</p><p className="text-sm text-muted-foreground">{store?.business_name ? "Business seller" : store?.store_name ? "ShopHub seller" : "Seller"} · View shop and products</p></div></CardContent></Card>
               </Link>
               <div className="flex flex-wrap items-center gap-3">
                 <label htmlFor="marketplace-product-quantity" className="text-sm font-medium">Quantity</label>
