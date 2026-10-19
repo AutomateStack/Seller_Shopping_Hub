@@ -116,8 +116,10 @@ export default function Products() {
           .from("seller_profiles")
           .select("id,store_name,business_name,contact_name,profile_photo_url")
           .in("id", sellerIds);
-        if (sellerError) throw sellerError;
-        sellerById = Object.fromEntries((sellers ?? []).map((seller: any) => [seller.id, seller]));
+        // Seller profile visibility should never hide otherwise-public approved products.
+        if (!sellerError) {
+          sellerById = Object.fromEntries((sellers ?? []).map((seller: any) => [seller.id, seller]));
+        }
       }
       return listings.map((p: any) => ({ ...p, seller: sellerById[p.seller_id] ?? null }));
     },
@@ -604,7 +606,7 @@ export default function Products() {
               </Link>
             ))}
           </div>
-        ) : (
+        ) : filteredSellerListings.length > 0 ? null : (
           <div className="space-y-6">
             <EmptyState
               icon={Search}
