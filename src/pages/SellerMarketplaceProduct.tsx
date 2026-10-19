@@ -209,7 +209,7 @@ export default function SellerMarketplaceProduct() {
                 </div>
                 {images.length > 1 && <div className="flex gap-2 overflow-x-auto pb-1">
                   {images.map((url, index) => <button key={url + index} type="button" onClick={() => setSelectedImageIndex(index)} aria-label={`Show product image ${index + 1}`} aria-pressed={selectedImageIndex === index} className={`h-20 w-20 shrink-0 overflow-hidden rounded-lg border-2 ${selectedImageIndex === index ? "border-primary ring-2 ring-primary/20" : "border-border"}`}>
-                    <img src={url} alt={product.title + " thumbnail " + (index + 1)} className="h-full w-full object-cover" />
+                    <img src={url} alt={product.title + " thumbnail " + (index + 1)} className="h-full w-full bg-white object-contain p-1" />
                   </button>)}
                 </div>}
               </> : <div className="flex aspect-square items-center justify-center rounded-2xl bg-muted"><Package className="h-16 w-16 text-muted-foreground" /></div>}
