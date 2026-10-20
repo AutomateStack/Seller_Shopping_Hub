@@ -70,6 +70,32 @@ export default function SellerMarketplaceProduct() {
     enabled: !!id,
   });
 
+  const { data: suggestedProducts = [] } = useQuery({
+    queryKey: ["marketplace-suggested-products", id, product?.category, product?.seller_id],
+    queryFn: async () => {
+      const { data, error } = await db.schema("catalog").from("products")
+        .select("id,title,category,brand,price,mrp,stock_quantity,image_urls,seller_id")
+        .eq("status", "approved")
+        .gt("stock_quantity", 0)
+        .neq("id", id)
+        .limit(30);
+      if (error) throw error;
+      const candidates = data || [];
+      const normalize = (value: unknown) => String(value || "").trim().toLowerCase();
+      return candidates
+        .sort((a: any, b: any) => {
+          const aSameCategory = product?.category && normalize(a.category) === normalize(product.category) ? 1 : 0;
+          const bSameCategory = product?.category && normalize(b.category) === normalize(product.category) ? 1 : 0;
+          if (aSameCategory !== bSameCategory) return bSameCategory - aSameCategory;
+          const aSameSeller = product?.seller_id && a.seller_id === product.seller_id ? 1 : 0;
+          const bSameSeller = product?.seller_id && b.seller_id === product.seller_id ? 1 : 0;
+          return bSameSeller - aSameSeller;
+        })
+        .slice(0, 4);
+    },
+    enabled: !!id && !!product,
+  });
+
   const { data: store } = useQuery({
     queryKey: ["seller-store-for-product", product?.seller_id],
     queryFn: async () => {
@@ -356,6 +382,33 @@ export default function SellerMarketplaceProduct() {
             </CardContent></Card>)}</div> : <p className="rounded-lg border border-dashed p-6 text-center text-sm text-muted-foreground">No reviews yet. Once customers receive this product, they can share a rating and review.</p>}
         </section>}
       </main>
+      {product && suggestedProducts.length > 0 && <section className="container mx-auto max-w-6xl px-4 pb-12" aria-labelledby="suggested-products-heading">
+        <div className="mb-5 flex flex-wrap items-end justify-between gap-3 border-t pt-8">
+          <div>
+            <h2 id="suggested-products-heading" className="text-2xl font-bold">You may also like</h2>
+            <p className="mt-1 text-sm text-muted-foreground">Related products picked from our seller marketplace.</p>
+          </div>
+          <Button variant="outline" asChild><Link to="/products">Browse all products</Link></Button>
+        </div>
+        <div className="grid grid-cols-2 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          {suggestedProducts.map((suggestion: any) => <Link key={suggestion.id} to={`/marketplace/products/${suggestion.id}`} className="group block h-full">
+            <Card className="h-full overflow-hidden transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-md">
+              <div className="aspect-square overflow-hidden bg-white">
+                {suggestion.image_urls?.[0] ? <img src={suggestion.image_urls[0]} alt={suggestion.title} loading="lazy" className="h-full w-full object-contain p-3 transition-transform duration-300 group-hover:scale-[1.03]" /> : <div className="flex h-full items-center justify-center bg-muted"><Package className="h-10 w-10 text-muted-foreground" /></div>}
+              </div>
+              <CardContent className="p-3 sm:p-4">
+                {suggestion.category && <p className="mb-1 text-xs text-muted-foreground">{suggestion.category}</p>}
+                <h3 className="line-clamp-2 min-h-10 text-sm font-medium transition-colors group-hover:text-primary">{suggestion.title}</h3>
+                <div className="mt-2 flex flex-wrap items-baseline gap-2">
+                  <span className="font-bold text-primary">₹{Number(suggestion.price).toFixed(2)}</span>
+                  {suggestion.mrp && Number(suggestion.mrp) > Number(suggestion.price) && <span className="text-xs text-muted-foreground line-through">₹{Number(suggestion.mrp).toFixed(2)}</span>}
+                </div>
+                <p className="mt-1 text-xs text-emerald-700">In stock</p>
+              </CardContent>
+            </Card>
+          </Link>)}
+        </div>
+      </section>}
       <Footer />
 
       {lightboxOpen && images.length > 0 && <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4 sm:p-8" role="dialog" aria-modal="true" aria-label={product?.title + " image viewer"} onClick={() => setLightboxOpen(false)}>
