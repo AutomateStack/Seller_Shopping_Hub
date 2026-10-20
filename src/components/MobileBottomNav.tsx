@@ -46,7 +46,7 @@ export function MobileBottomNav() {
       <div className="flex items-center justify-around h-14">
         {tabs.map((tab) => {
           const isActive = location.pathname === tab.path;
-          const resolvedPath = !user && (tab.path === "/cart" || tab.path === "/wishlist" || tab.path === "/profile")
+          const resolvedPath = !user && (tab.path === "/cart" || tab.path === "/profile")
             ? "/auth"
             : tab.path;
 
