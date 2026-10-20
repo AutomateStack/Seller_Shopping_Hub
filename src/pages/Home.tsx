@@ -13,6 +13,7 @@ import { SocialProofCounters } from "@/components/home/SocialProofCounters";
 import { DealsSection } from "@/components/home/DealsSection";
 
 import { NewArrivalsSection } from "@/components/home/NewArrivalsSection";
+import { RecentlyViewedProducts } from "@/components/home/RecentlyViewedProducts";
 import { FeaturedCarousel } from "@/components/home/FeaturedCarousel";
 import { RecommendedForYou } from "@/components/home/RecommendedForYou";
 import { EngagementSection } from "@/components/home/EngagementSection";
@@ -181,6 +182,7 @@ export default function Home() {
       <DealsSection />
       
       {newArrivals.length > 0 && <NewArrivalsSection products={newArrivals} />}
+      <RecentlyViewedProducts />
       <LazyMount minHeight={500}>
         <RecommendedForYou />
       </LazyMount>
