@@ -147,13 +147,11 @@ export const Navbar = () => {
         <div className="flex items-center gap-1">
           <NavbarSearch />
           <ThemeToggle />
-          {user && (
-            <Link to="/wishlist">
-              <Button variant="ghost" size="icon" aria-label="Wishlist">
-                <Heart className="h-5 w-5" aria-hidden="true" />
-              </Button>
-            </Link>
-          )}
+          <Link to="/wishlist">
+            <Button variant="ghost" size="icon" aria-label="Wishlist">
+              <Heart className="h-5 w-5" aria-hidden="true" />
+            </Button>
+          </Link>
           {user && (
             <Link to="/cart">
               <Button variant="ghost" size="icon" className="relative" aria-label={`Shopping cart${cartCount > 0 ? `, ${cartCount} items` : ''}`}>
