@@ -2,6 +2,7 @@ import { Heart } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { useWishlist } from "@/hooks/use-wishlist";
+import { useMarketplaceWishlist } from "@/hooks/use-marketplace-wishlist";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 
@@ -9,10 +10,15 @@ interface WishlistButtonProps {
   productId: string;
   size?: "sm" | "default";
   className?: string;
+  marketplace?: boolean;
 }
 
-export function WishlistButton({ productId, size = "sm", className }: WishlistButtonProps) {
-  const { toggle, isInWishlist, isLoggedIn } = useWishlist();
+export function WishlistButton({ productId, size = "sm", className, marketplace = false }: WishlistButtonProps) {
+  const legacyWishlist = useWishlist();
+  const marketplaceWishlist = useMarketplaceWishlist();
+  const { toggle, isInWishlist, isLoggedIn } = marketplace
+    ? { ...marketplaceWishlist, isLoggedIn: true }
+    : legacyWishlist;
   const navigate = useNavigate();
   const { toast } = useToast();
   const active = isInWishlist(productId);
@@ -20,7 +26,7 @@ export function WishlistButton({ productId, size = "sm", className }: WishlistBu
   const handleClick = (e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
-    if (!isLoggedIn) {
+    if (!marketplace && !isLoggedIn) {
       toast({ title: "Sign in required", description: "Please sign in to save items to your wishlist." });
       navigate("/auth");
       return;
