@@ -12,6 +12,7 @@ import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Package, Store, ShoppingCart, ChevronLeft, ChevronRight, X, Star, Loader2, ZoomIn, Minus, Plus, Truck, ShieldCheck, RotateCcw } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
 import { RECENTLY_VIEWED_PRODUCTS_KEY } from "@/components/home/RecentlyViewedProducts";
+import { WishlistButton } from "@/components/WishlistButton";
 
 const db = supabase as any;
 const MARKETPLACE_CART_KEY = "shophub-marketplace-cart-v1";
@@ -256,7 +257,7 @@ export default function SellerMarketplaceProduct() {
               </> : <div className="flex aspect-square items-center justify-center rounded-2xl bg-muted"><Package className="h-16 w-16 text-muted-foreground" /></div>}
             </div>
             <div className="space-y-4">
-              <h1 className="text-2xl font-bold leading-tight tracking-tight sm:text-3xl">{product.title}</h1>
+              <div className="flex items-start justify-between gap-3"><h1 className="text-2xl font-bold leading-tight tracking-tight sm:text-3xl">{product.title}</h1><WishlistButton productId={product.id} marketplace size="default" className="h-11 w-11 shrink-0" /></div>
               <p className="text-sm text-muted-foreground">{product.brand ? "Brand: " + product.brand : ""}{product.brand && product.category ? " · " : ""}{product.category || ""}</p>
               <a href="#marketplace-reviews-heading" className="inline-flex flex-wrap items-center gap-2 text-sm hover:underline">
                 {reviews.length > 0 ? <><span className="font-semibold">{averageRating.toFixed(1)}</span><Stars rating={averageRating} /><span className="text-primary">{reviews.length} review{reviews.length === 1 ? "" : "s"}</span></> : <><Stars rating={0} /><span className="text-primary">Be the first to review</span></>}
