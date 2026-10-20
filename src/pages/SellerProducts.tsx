@@ -18,6 +18,40 @@ const db = supabase as any;
 type Product = { id:string; title:string; description:string; category:string; brand:string; sku:string|null; price:number; mrp:number|null; stock_quantity:number; image_urls:string[]; status:string; created_at:string; latest_revision_status?:string|null; latest_revision_summary?:string|null; latest_revision_comment?:string|null; latest_revision_at?:string|null };
 const emptyForm = { title:"", description:"", category:"", brand:"", sku:"", price:"", mrp:"", stock_quantity:"0" };
 const productCategories = ["Fashion & Clothing","Jewellery & Accessories","Beauty & Personal Care","Home & Kitchen","Kitchen & Dining","Grocery & Food","Electronics","Mobile Accessories","Toys & Games","Baby & Kids","Bags & Luggage","Footwear","Sports & Fitness","Automotive","Books & Stationery","Pet Supplies","Handmade & Crafts","Other"];
+const categoryAttributeFields: Record<string, { label: string; placeholder: string }[]> = {
+  "Fashion & Clothing": [{label:"Size",placeholder:"e.g. M, XL, 32"}, {label:"Colour",placeholder:"e.g. Navy blue"}, {label:"Material / fabric",placeholder:"e.g. Cotton"}, {label:"Fit / style",placeholder:"e.g. Regular fit"}, {label:"Care instructions",placeholder:"e.g. Machine wash cold"}],
+  "Jewellery & Accessories": [{label:"Material",placeholder:"e.g. Stainless steel"}, {label:"Colour",placeholder:"e.g. Gold tone"}, {label:"Size / dimensions",placeholder:"e.g. 18 cm"}, {label:"Closure / fastening",placeholder:"e.g. Lobster clasp"}, {label:"What's included",placeholder:"e.g. 1 necklace"}],
+  "Beauty & Personal Care": [{label:"Skin / hair type",placeholder:"e.g. Dry skin"}, {label:"Net quantity",placeholder:"e.g. 100 ml"}, {label:"Key ingredients",placeholder:"List ingredients where known"}, {label:"How to use",placeholder:"Follow product label"}, {label:"Expiry / best-before date",placeholder:"As printed on package"}],
+  "Home & Kitchen": [{label:"Material",placeholder:"e.g. Stainless steel"}, {label:"Dimensions",placeholder:"e.g. 20 × 15 × 8 cm"}, {label:"Weight",placeholder:"e.g. 500 g"}, {label:"What's included",placeholder:"List included items"}, {label:"Care instructions",placeholder:"e.g. Hand wash"}],
+  "Kitchen & Dining": [{label:"Material",placeholder:"e.g. Borosilicate glass"}, {label:"Capacity",placeholder:"e.g. 750 ml"}, {label:"Dimensions",placeholder:"e.g. 20 cm high"}, {label:"Dishwasher / microwave safe",placeholder:"Only if confirmed"}, {label:"What's included",placeholder:"e.g. Set of 4"}],
+  "Grocery & Food": [{label:"Net quantity / weight",placeholder:"e.g. 500 g"}, {label:"Ingredients",placeholder:"As listed on package"}, {label:"Dietary information",placeholder:"Only verified claims"}, {label:"Allergen information",placeholder:"As listed on package"}, {label:"Expiry / best-before date",placeholder:"As printed on package"}],
+  "Electronics": [{label:"Brand model",placeholder:"Manufacturer model"}, {label:"Compatibility",placeholder:"Compatible devices / systems"}, {label:"Connectivity",placeholder:"e.g. Bluetooth 5.3"}, {label:"Power / battery",placeholder:"Power rating if known"}, {label:"Warranty",placeholder:"Only confirmed warranty details"}],
+  "Mobile Accessories": [{label:"Compatible device / model",placeholder:"e.g. USB-C phones"}, {label:"Connector type",placeholder:"e.g. USB-C"}, {label:"Material",placeholder:"e.g. Silicone"}, {label:"What's included",placeholder:"List included items"}, {label:"Warranty",placeholder:"Only confirmed warranty details"}],
+  "Toys & Games": [{label:"Recommended age",placeholder:"Use packaging guidance"}, {label:"Material",placeholder:"e.g. Wood"}, {label:"Dimensions",placeholder:"Product dimensions"}, {label:"What's included",placeholder:"List pieces / accessories"}, {label:"Safety information",placeholder:"As stated by manufacturer"}],
+  "Baby & Kids": [{label:"Recommended age",placeholder:"Use packaging guidance"}, {label:"Material",placeholder:"e.g. Cotton"}, {label:"Size / dimensions",placeholder:"Product measurements"}, {label:"Care instructions",placeholder:"As stated on label"}, {label:"Safety information",placeholder:"Only verified instructions"}],
+  "Bags & Luggage": [{label:"Material",placeholder:"e.g. Polyester"}, {label:"Dimensions",placeholder:"e.g. 40 × 30 × 12 cm"}, {label:"Capacity",placeholder:"e.g. 20 L"}, {label:"Compartments",placeholder:"e.g. 2 main compartments"}, {label:"Closure type",placeholder:"e.g. Zipper"}],
+  "Footwear": [{label:"Size",placeholder:"e.g. UK 8"}, {label:"Colour",placeholder:"e.g. Black"}, {label:"Material",placeholder:"Upper / sole material"}, {label:"Fit",placeholder:"e.g. Regular fit"}, {label:"Care instructions",placeholder:"e.g. Wipe clean"}],
+  "Sports & Fitness": [{label:"Material",placeholder:"Product material"}, {label:"Dimensions / size",placeholder:"Product measurements"}, {label:"Weight",placeholder:"Product weight"}, {label:"Recommended use",placeholder:"Intended activity"}, {label:"What's included",placeholder:"List included items"}],
+  "Automotive": [{label:"Compatible vehicle / model",placeholder:"Vehicle fitment if confirmed"}, {label:"Material",placeholder:"Product material"}, {label:"Dimensions",placeholder:"Product measurements"}, {label:"Installation instructions",placeholder:"As supplied by manufacturer"}, {label:"What's included",placeholder:"List included parts"}],
+  "Books & Stationery": [{label:"Author / creator",placeholder:"Author or creator"}, {label:"Language",placeholder:"e.g. English"}, {label:"Format / binding",placeholder:"e.g. Paperback"}, {label:"Pages / quantity",placeholder:"e.g. 240 pages"}, {label:"Dimensions",placeholder:"Book or item size"}],
+  "Pet Supplies": [{label:"Suitable pet / breed / size",placeholder:"Intended pet type"}, {label:"Material / ingredients",placeholder:"As applicable"}, {label:"Size / capacity",placeholder:"Product size"}, {label:"Usage instructions",placeholder:"As supplied by manufacturer"}, {label:"Safety information",placeholder:"Only verified guidance"}],
+  "Handmade & Crafts": [{label:"Material",placeholder:"Materials used"}, {label:"Dimensions",placeholder:"Finished item size"}, {label:"Colour",placeholder:"Main colour(s)"}, {label:"Personalisation",placeholder:"Available options, if any"}, {label:"Care instructions",placeholder:"How to maintain"}],
+  "Other": [{label:"Material",placeholder:"If applicable"}, {label:"Dimensions",placeholder:"If applicable"}, {label:"Weight",placeholder:"If applicable"}, {label:"What's included",placeholder:"List included items"}, {label:"Care / usage instructions",placeholder:"If applicable"}],
+};
+const attributeBlockStart = "Product specifications:";
+function parseDescription(description: string) {
+  const lines = description.split(/\\r?\\n/);
+  const start = lines.findIndex(line => line.trim() === attributeBlockStart);
+  if (start < 0) return { description, attributes: {} as Record<string,string> };
+  const attributes: Record<string,string> = {};
+  lines.slice(start + 1).forEach(line => { const match = line.match(/^([^:]{2,60}):\\s*(.*)$/); if (match) attributes[match[1].trim()] = match[2].trim(); });
+  return { description: lines.slice(0,start).join("\\n").trim(), attributes };
+}
+function composeDescription(description: string, category: string, attributes: Record<string,string>) {
+  const base = parseDescription(description).description.trim();
+  const lines = (categoryAttributeFields[category] || []).map(field => ({label:field.label,value:(attributes[field.label] || "").trim()})).filter(item => item.value);
+  return [base, lines.length ? [attributeBlockStart, ...lines.map(item => item.label + ": " + item.value)].join("\\n") : ""].filter(Boolean).join("\\n\\n");
+}
 const pretty = (s:string) => s.replaceAll("_"," ").replace(/\b\w/g,c=>c.toUpperCase());
 
 export default function SellerProducts() {
@@ -28,6 +62,7 @@ export default function SellerProducts() {
   const [editingId,setEditingId] = useState<string | null>(null);
   const [products,setProducts] = useState<Product[]>([]);
   const [form,setForm] = useState(emptyForm);
+  const [categoryAttributes,setCategoryAttributes] = useState<Record<string,string>>({});
   const [images,setImages] = useState<string[]>([]);
   const [loading,setLoading] = useState(true);
   const [saving,setSaving] = useState(false);
@@ -125,7 +160,8 @@ export default function SellerProducts() {
       toast({title:"Check MRP",description:"MRP must be greater than or equal to the selling price.",variant:"destructive"}); return;
     }
     setSaving(true);
-    const payload = {title:form.title.trim(),description:form.description.trim(),category:form.category.trim(),brand:form.brand.trim(),sku:form.sku.trim()||null,price,mrp,image_urls:images};
+    const finalDescription = composeDescription(form.description, form.category, categoryAttributes);
+    const payload = {title:form.title.trim(),description:finalDescription,category:form.category.trim(),brand:form.brand.trim(),sku:form.sku.trim()||null,price,mrp,image_urls:images};
     const editingProduct = editingId ? products.find(p=>p.id===editingId) : null;
     const approvedEdit = !!editingProduct && ["approved","paused"].includes(editingProduct.status);
     const detailChanged = !!editingProduct && (
@@ -190,12 +226,14 @@ export default function SellerProducts() {
   function editProduct(product:Product) {
     setFormOpen(true);
     setEditingId(product.id);
-    setForm({title:product.title,description:product.description??"",category:product.category??"",brand:product.brand??"",sku:product.sku??"",price:String(product.price),mrp:product.mrp==null?"":String(product.mrp),stock_quantity:String(product.stock_quantity)});
+    const parsedDescription = parseDescription(product.description ?? "");
+    setForm({title:product.title,description:parsedDescription.description,category:product.category??"",brand:product.brand??"",sku:product.sku??"",price:String(product.price),mrp:product.mrp==null?"":String(product.mrp),stock_quantity:String(product.stock_quantity)});
+    setCategoryAttributes(parsedDescription.attributes);
     setImages(product.image_urls??[]);
     window.scrollTo({top:0,behavior:"smooth"});
   }
 
-  function cancelEdit() { setEditingId(null); setForm(emptyForm); setImages([]); setFormOpen(false); setReviewConfirmOpen(false); setChangeSummary(""); }
+  function cancelEdit() { setEditingId(null); setForm(emptyForm); setCategoryAttributes({}); setImages([]); setFormOpen(false); setReviewConfirmOpen(false); setChangeSummary(""); }
 
   async function saveStock(product:Product) {
     const raw = stockDrafts[product.id] ?? String(product.stock_quantity);
@@ -317,7 +355,7 @@ export default function SellerProducts() {
           </section>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2"><Label htmlFor="product-title">Product name *</Label><Input id="product-title" maxLength={160} value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="e.g. Natural Coir Scrubber Pack of 5"/></div>
-            <div className="space-y-2"><Label htmlFor="product-category">Category *</Label><Select value={form.category} onValueChange={value=>setForm({...form,category:value})}><SelectTrigger id="product-category"><SelectValue placeholder="Choose a product category"/></SelectTrigger><SelectContent>{productCategories.map(category=><SelectItem key={category} value={category}>{category}</SelectItem>)}</SelectContent></Select>{form.category&&!productCategories.includes(form.category)&&<p className="text-xs text-muted-foreground">Existing category: {form.category}. Choose a category to change it.</p>}</div>
+            <div className="space-y-2"><Label htmlFor="product-category">Category *</Label><Select value={form.category} onValueChange={value=>{setForm({...form,category:value});}}><SelectTrigger id="product-category"><SelectValue placeholder="Choose a product category"/></SelectTrigger><SelectContent>{productCategories.map(category=><SelectItem key={category} value={category}>{category}</SelectItem>)}</SelectContent></Select>{form.category&&!productCategories.includes(form.category)&&<p className="text-xs text-muted-foreground">Existing category: {form.category}. Choose a category to change it.</p>}</div>
             <div className="space-y-2"><Label htmlFor="product-brand">Brand</Label><Input id="product-brand" value={form.brand} onChange={e=>setForm({...form,brand:e.target.value})} placeholder="Brand name"/></div>
             <div className="space-y-2"><Label htmlFor="product-sku">Seller SKU (optional)</Label><Input id="product-sku" value={form.sku} onChange={e=>setForm({...form,sku:e.target.value})} placeholder="Your internal SKU"/></div>
             <div className="space-y-2"><Label htmlFor="product-price">Selling price (₹) *</Label><Input id="product-price" type="number" min="0.01" step="0.01" value={form.price} onChange={e=>setForm({...form,price:e.target.value})} placeholder="199.00"/></div>
@@ -329,9 +367,10 @@ export default function SellerProducts() {
             {images.length>0&&<div className="flex flex-wrap gap-3">{images.map((url,i)=><div key={url} className="relative"><img src={url} alt={`Product image ${i+1}`} className="h-20 w-20 rounded-md border object-cover"/><Button type="button" size="icon" variant="destructive" className="absolute -right-2 -top-2 h-6 w-6" onClick={()=>setImages(prev=>prev.filter(x=>x!==url))} aria-label="Remove image"><Trash2 className="h-3 w-3"/></Button></div>)}</div>}
             <p className="text-xs text-muted-foreground">Images are uploaded privately by seller folder and served from the product image bucket.</p>
           </div>
+          {form.category && <section className="space-y-3 rounded-xl border p-4" aria-labelledby="category-attributes-heading"><div><h3 id="category-attributes-heading" className="font-semibold">Specifications for {form.category}</h3><p className="text-sm text-muted-foreground">Optional fields tailored to this category. Only enter details you can verify from the product or its packaging.</p></div><div className="grid gap-4 sm:grid-cols-2">{(categoryAttributeFields[form.category] || categoryAttributeFields.Other).map(field=><div className="space-y-2" key={field.label}><Label htmlFor={"category-attribute-"+field.label.toLowerCase().replace(/[^a-z0-9]+/g,"-")}>{field.label}</Label><Input id={"category-attribute-"+field.label.toLowerCase().replace(/[^a-z0-9]+/g,"-")} maxLength={180} value={categoryAttributes[field.label] || ""} onChange={e=>setCategoryAttributes(prev=>({...prev,[field.label]:e.target.value}))} placeholder={field.placeholder}/></div>)}</div></section>}
           <div className="flex flex-wrap gap-2">{!(editingId && products.some(p=>p.id===editingId && ["approved","paused"].includes(p.status)))&&<Button onClick={()=>void saveProduct(false)} disabled={saving||uploading}><Plus className="mr-2 h-4 w-4"/>{saving?"Saving…":editingId?"Save changes":"Save draft"}</Button>}{editingId && products.some(p=>p.id===editingId && ["approved","paused"].includes(p.status)) ? <Button onClick={()=>void saveProduct(true)} disabled={saving||uploading}><Send className="mr-2 h-4 w-4"/>{saving?"Submitting…":"Save & submit for review"}</Button> : <Button variant="outline" onClick={()=>void saveProduct(true)} disabled={saving||uploading}><Send className="mr-2 h-4 w-4"/>Submit for review</Button>}{editingId&&<Button variant="ghost" onClick={cancelEdit} disabled={saving||uploading}>Cancel edit</Button>}</div>
         </CardContent>
-      </Card> : <Button type="button" className="w-full sm:w-auto" onClick={()=>{setEditingId(null);setForm(emptyForm);setImages([]);setFormOpen(true);}}><Plus className="mr-2 h-4 w-4"/> Add a product</Button>}
+      </Card> : <Button type="button" className="w-full sm:w-auto" onClick={()=>{setEditingId(null);setForm(emptyForm);setCategoryAttributes({});setImages([]);setFormOpen(true);}}><Plus className="mr-2 h-4 w-4"/> Add a product</Button>}
       <section className="space-y-3"><div><h2 className="text-xl font-bold">Your listings ({products.length})</h2><p className="text-sm text-muted-foreground">Only your own products are shown here.</p></div>
         {products.length===0?<Card className="border-dashed"><CardContent className="py-10 text-center"><ImagePlus className="mx-auto h-8 w-8 text-muted-foreground"/><p className="mt-2 font-medium">No products yet</p><p className="text-sm text-muted-foreground">Create your first listing above.</p></CardContent></Card>:products.map(p=><Card key={p.id}><CardContent className="flex flex-col gap-4 p-4 sm:flex-row sm:items-start">
           {p.image_urls?.[0]?<img src={p.image_urls[0]} alt={p.title} className="h-24 w-24 rounded-lg border object-cover"/>:<div className="flex h-24 w-24 items-center justify-center rounded-lg bg-muted"><Package className="h-8 w-8 text-muted-foreground"/></div>}
