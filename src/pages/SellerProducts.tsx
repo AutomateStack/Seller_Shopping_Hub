@@ -40,17 +40,17 @@ const categoryAttributeFields: Record<string, { label: string; placeholder: stri
 };
 const attributeBlockStart = "Product specifications:";
 function parseDescription(description: string) {
-  const lines = description.split(/\\r?\\n/);
+  const lines = description.split(/\r?\n/);
   const start = lines.findIndex(line => line.trim() === attributeBlockStart);
   if (start < 0) return { description, attributes: {} as Record<string,string> };
   const attributes: Record<string,string> = {};
-  lines.slice(start + 1).forEach(line => { const match = line.match(/^([^:]{2,60}):\\s*(.*)$/); if (match) attributes[match[1].trim()] = match[2].trim(); });
-  return { description: lines.slice(0,start).join("\\n").trim(), attributes };
+  lines.slice(start + 1).forEach(line => { const match = line.match(/^([^:]{2,60}):\s*(.*)$/); if (match) attributes[match[1].trim()] = match[2].trim(); });
+  return { description: lines.slice(0,start).join("\n").trim(), attributes };
 }
 function composeDescription(description: string, category: string, attributes: Record<string,string>) {
   const base = parseDescription(description).description.trim();
   const lines = (categoryAttributeFields[category] || []).map(field => ({label:field.label,value:(attributes[field.label] || "").trim()})).filter(item => item.value);
-  return [base, lines.length ? [attributeBlockStart, ...lines.map(item => item.label + ": " + item.value)].join("\\n") : ""].filter(Boolean).join("\\n\\n");
+  return [base, lines.length ? [attributeBlockStart, ...lines.map(item => item.label + ": " + item.value)].join("\n") : ""].filter(Boolean).join("\n\n");
 }
 const pretty = (s:string) => s.replaceAll("_"," ").replace(/\b\w/g,c=>c.toUpperCase());
 
