@@ -244,12 +244,19 @@ export default function SellerMarketplaceProduct() {
               </CardContent></Card>
               <div className="space-y-6 border-t pt-5">
                 {(() => {
-                  const bulletLines = descriptionLines.map((line) => line.match(/^([-*•▪]|\d+[.)])\s+(.+)$/)?.[2]?.trim()).filter((line): line is string => !!line);
+                  const specsMarkerIndex = descriptionLines.findIndex((line) => /^Product specifications:$/i.test(line));
+                  const listingDescriptionLines = specsMarkerIndex >= 0 ? descriptionLines.slice(0, specsMarkerIndex) : descriptionLines;
+                  const categorySpecificationLines = specsMarkerIndex >= 0 ? descriptionLines.slice(specsMarkerIndex + 1) : [];
+                  const bulletLines = listingDescriptionLines.map((line) => line.match(/^([-*•▪]|\d+[.)])\s+(.+)$/)?.[2]?.trim()).filter((line): line is string => !!line);
                   const attributeLines = descriptionLines.map((line) => {
                     const match = line.match(/^([\w /()-]{2,40})\s*:\s*(.+)$/);
                     return match ? { label: match[1].trim(), value: match[2].trim() } : null;
                   }).filter((item): item is { label: string; value: string } => !!item);
                   const normalizeAttributeKey = (key: string) => key.toLowerCase().replace(/[^a-z]/g, "");
+                  const categorySpecificationAttributes = categorySpecificationLines.map((line) => {
+                    const match = line.match(/^([\w /()-]{2,60})\s*:\s*(.+)$/);
+                    return match ? { label: match[1].trim(), value: match[2].trim() } : null;
+                  }).filter((item): item is { label: string; value: string } => !!item);
                   const normalizedAttributes = new Map(attributeLines.map((item) => [normalizeAttributeKey(item.label), item.value]));
                   const recognizedAttributeKeys = new Set([
                     "brand", "category", "model", "modelnumber", "modelno", "colour", "color", "material", "fabric", "size", "fit",
@@ -264,7 +271,7 @@ export default function SellerMarketplaceProduct() {
                     }
                     return "Not provided by seller";
                   };
-                  const overviewLines = descriptionLines.filter((line) => {
+                  const overviewLines = listingDescriptionLines.filter((line) => {
                     if (line.match(/^([-*•▪]|\d+[.)])\s+.+$/)) return false;
                     const match = line.match(/^([\w /()-]{2,40})\s*:\s*(.+)$/);
                     return !match || !recognizedAttributeKeys.has(normalizeAttributeKey(match[1]));
@@ -289,6 +296,13 @@ export default function SellerMarketplaceProduct() {
                     ["Expiry / best-before date", findAttribute("expiry date", "expiration date", "best before")],
                   ];
                   const renderSpecs = (items: string[][]) => <dl className="divide-y rounded-lg border px-3">{items.map(([label, value]) => <div key={label} className="grid grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] gap-3 py-3 text-sm"><dt className="text-muted-foreground">{label}</dt><dd className={value === "Not provided by seller" ? "text-muted-foreground" : "font-medium"}>{value}</dd></div>)}</dl>;
+                  const standardSpecKeys = new Set([
+                    "brand", "category", "model", "modelnumber", "modelno", "colour", "color", "material", "fabric", "size", "fit",
+                    "dimensions", "dimension", "length", "width", "height", "weight", "netweight", "productweight", "careinstructions", "care",
+                    "usageinstructions", "directions", "packagecontents", "inthebox", "whatsincluded", "contents", "warranty", "guarantee",
+                    "countryoforigin", "madein", "origin", "manufacturer", "importer", "packedby", "packer", "expirydate", "expirationdate", "bestbefore",
+                  ]);
+                  const additionalCategorySpecs = categorySpecificationAttributes.filter((item) => !standardSpecKeys.has(normalizeAttributeKey(item.label)));
                   return <>
                     <section aria-labelledby="product-overview-heading">
                       <h2 id="product-overview-heading" className="mb-2 font-semibold">About this product</h2>
@@ -305,6 +319,7 @@ export default function SellerMarketplaceProduct() {
                       {renderSpecs(generalSpecs)}
                       <h3 className="mb-2 mt-4 text-sm font-medium">Dimensions, care &amp; other details</h3>
                       {renderSpecs(practicalSpecs)}
+                      {additionalCategorySpecs.length > 0 && <><h3 className="mb-2 mt-4 text-sm font-medium">More product details</h3><dl className="divide-y rounded-lg border px-3">{additionalCategorySpecs.map(({ label, value }) => <div key={label} className="grid grid-cols-[minmax(0,0.8fr)_minmax(0,1.2fr)] gap-3 py-3 text-sm"><dt className="text-muted-foreground">{label}</dt><dd className="font-medium">{value}</dd></div>)}</dl></>}
                     </section>
                   </>;
                 })()}
