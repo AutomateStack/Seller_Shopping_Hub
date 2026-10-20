@@ -11,6 +11,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { ArrowLeft, Package, Store, ShoppingCart, ChevronLeft, ChevronRight, X, Star, Loader2, ZoomIn, Minus, Plus, Truck, ShieldCheck, RotateCcw } from "lucide-react";
 import { SEOHead } from "@/components/SEOHead";
+import { RECENTLY_VIEWED_PRODUCTS_KEY } from "@/components/home/RecentlyViewedProducts";
 
 const db = supabase as any;
 const MARKETPLACE_CART_KEY = "shophub-marketplace-cart-v1";
@@ -107,6 +108,20 @@ export default function SellerMarketplaceProduct() {
     },
     enabled: !!product?.seller_id,
   });
+
+  useEffect(() => {
+    if (!product?.id || typeof window === "undefined") return;
+    try {
+      const stored = window.localStorage.getItem(RECENTLY_VIEWED_PRODUCTS_KEY);
+      const parsed = stored ? JSON.parse(stored) : [];
+      const previousIds = Array.isArray(parsed) ? parsed.filter((value): value is string => typeof value === "string") : [];
+      const nextIds = [product.id, ...previousIds.filter((value) => value !== product.id)].slice(0, 8);
+      window.localStorage.setItem(RECENTLY_VIEWED_PRODUCTS_KEY, JSON.stringify(nextIds));
+      window.dispatchEvent(new Event("shophub-recently-viewed-updated"));
+    } catch {
+      // Browsing and checkout must continue even when browser storage is unavailable.
+    }
+  }, [product?.id]);
 
   const images: string[] = (product?.image_urls || []).filter((url: unknown): url is string => typeof url === "string" && !!url.trim());
   const descriptionLines = String(product?.description || "").split(/\r?\n/).map((line) => line.trim()).filter(Boolean);
