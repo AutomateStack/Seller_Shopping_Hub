@@ -525,8 +525,9 @@ export default function Products() {
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
               {filteredSellerListings.map((product: any) => (
                 <Link key={product.id} to={`/marketplace/products/${product.id}`} className="block h-full"><Card className="overflow-hidden h-full transition-shadow hover:shadow-lg">
-                  <div className="aspect-square overflow-hidden bg-muted">
+                  <div className="relative aspect-square overflow-hidden bg-muted">
                     <img src={product.image_urls?.[0] || "/placeholder.svg"} alt={product.title} loading="lazy" className="h-full w-full object-cover"/>
+                    <div className="absolute right-2 top-2 z-10"><WishlistButton productId={product.id} marketplace /></div>
                   </div>
                   <CardContent className="p-4">
                     <h3 className="font-semibold line-clamp-2">{product.title}</h3>
