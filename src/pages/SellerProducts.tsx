@@ -240,6 +240,18 @@ export default function SellerProducts() {
     else { toast({title:"Submitted for review"}); await load(); }
   }
 
+  const listingChecklist = [
+    { label: "Product name", detail: "Use a clear, specific name", complete: form.title.trim().length >= 3, required: true },
+    { label: "Category", detail: "Choose the closest matching category", complete: !!form.category.trim(), required: true },
+    { label: "Selling price", detail: "Enter a price greater than zero", complete: Number.isFinite(Number(form.price)) && Number(form.price) > 0, required: true },
+    { label: "Stock quantity", detail: "Use a whole number of zero or more", complete: form.stock_quantity.trim() !== "" && Number.isInteger(Number(form.stock_quantity)) && Number(form.stock_quantity) >= 0, required: true },
+    { label: "Product photos", detail: "Add clear photos from multiple angles when possible", complete: images.length > 0, required: false },
+    { label: "Description and features", detail: "Include benefits, use and what's included", complete: form.description.trim().length >= 40, required: false },
+    { label: "Brand", detail: "Add the brand, or leave blank if unbranded", complete: !!form.brand.trim(), required: false },
+    { label: "MRP", detail: "Add the printed MRP when applicable", complete: !!form.mrp.trim() && Number.isFinite(Number(form.mrp)) && Number(form.mrp) >= Number(form.price) && Number(form.price) > 0, required: false },
+  ];
+  const completedListingItems = listingChecklist.filter(item => item.complete).length;
+  const listingCompleteness = Math.round((completedListingItems / listingChecklist.length) * 100);
   const lowStockProducts = products.filter(p => p.status === "approved" && p.stock_quantity > 0 && p.stock_quantity <= 5);
   const outOfStockProducts = products.filter(p => p.status === "approved" && p.stock_quantity === 0);
 
@@ -289,6 +301,20 @@ export default function SellerProducts() {
       {formOpen ? <Card>
         <CardHeader><CardTitle className="flex items-center gap-2"><Plus className="h-5 w-5"/> {editingId?"Edit product":"Add a product"}</CardTitle><CardDescription>{editingId ? "All product detail changes to an approved listing require admin review. The current listing stays live and unchanged until the revision is approved. Stock is managed separately." : "Products remain unpublished until an admin approves them. Use accurate product details and images you have rights to use."}</CardDescription></CardHeader>
         <CardContent className="space-y-5">
+          <section aria-labelledby="listing-quality-heading" className="space-y-3 rounded-xl border bg-muted/20 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div><h3 id="listing-quality-heading" className="font-semibold">Listing quality checklist</h3><p className="text-sm text-muted-foreground">Required fields are marked *. Optional details help customers decide with confidence.</p></div>
+              <Badge variant={listingCompleteness >= 75 ? "default" : "secondary"}>{listingCompleteness}% complete</Badge>
+            </div>
+            <div className="h-2 overflow-hidden rounded-full bg-muted" role="progressbar" aria-label="Listing completeness" aria-valuemin={0} aria-valuemax={100} aria-valuenow={listingCompleteness}><div className="h-full rounded-full bg-primary transition-all" style={{width: listingCompleteness + "%"}} /></div>
+            <div className="grid gap-2 sm:grid-cols-2">
+              {listingChecklist.map(item=><div key={item.label} className="flex items-start gap-2 text-sm">
+                <span aria-hidden="true" className={item.complete ? "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-700" : "mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded-full border text-muted-foreground"}>{item.complete ? "✓" : "·"}</span>
+                <div><p className={item.complete ? "font-medium" : "font-medium text-foreground"}>{item.label}{item.required ? " *" : ""}</p><p className="text-xs text-muted-foreground">{item.complete ? "Added" : item.detail}{!item.required && !item.complete ? " · Recommended" : ""}</p></div>
+              </div>)}
+            </div>
+            <p className="text-xs text-muted-foreground">The checklist is a guide, not a guarantee of approval. Only add specifications you can verify.</p>
+          </section>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2"><Label htmlFor="product-title">Product name *</Label><Input id="product-title" maxLength={160} value={form.title} onChange={e=>setForm({...form,title:e.target.value})} placeholder="e.g. Natural Coir Scrubber Pack of 5"/></div>
             <div className="space-y-2"><Label htmlFor="product-category">Category *</Label><Select value={form.category} onValueChange={value=>setForm({...form,category:value})}><SelectTrigger id="product-category"><SelectValue placeholder="Choose a product category"/></SelectTrigger><SelectContent>{productCategories.map(category=><SelectItem key={category} value={category}>{category}</SelectItem>)}</SelectContent></Select>{form.category&&!productCategories.includes(form.category)&&<p className="text-xs text-muted-foreground">Existing category: {form.category}. Choose a category to change it.</p>}</div>
@@ -297,7 +323,7 @@ export default function SellerProducts() {
             <div className="space-y-2"><Label htmlFor="product-price">Selling price (₹) *</Label><Input id="product-price" type="number" min="0.01" step="0.01" value={form.price} onChange={e=>setForm({...form,price:e.target.value})} placeholder="199.00"/></div>
             <div className="space-y-2"><Label htmlFor="product-mrp">MRP (₹)</Label><Input id="product-mrp" type="number" min="0.01" step="0.01" value={form.mrp} onChange={e=>setForm({...form,mrp:e.target.value})} placeholder="249.00"/></div>
             {!(editingId && products.some(p=>p.id===editingId && ["approved","paused"].includes(p.status)))&&<div className="space-y-2"><Label htmlFor="product-stock">Available stock *</Label><Input id="product-stock" type="number" min="0" step="1" value={form.stock_quantity} onChange={e=>setForm({...form,stock_quantity:e.target.value})}/></div>}
-            <div className="space-y-2 md:col-span-2"><Label htmlFor="product-description">Description</Label><Textarea id="product-description" rows={4} maxLength={5000} value={form.description} onChange={e=>setForm({...form,description:e.target.value})} placeholder="Features, size, material, what's included…"/></div>
+            <div className="space-y-2 md:col-span-2"><Label htmlFor="product-description">Description</Label><Textarea id="product-description" rows={5} maxLength={5000} value={form.description} onChange={e=>setForm({...form,description:e.target.value})} placeholder={"Describe what the product is and who it is for.\n\nKey features:\n• Feature or benefit\n• Material, size or compatibility (if known)\n\nPackage contents: …\nCare instructions: …"} /><p className="text-xs text-muted-foreground">{form.description.trim().length}/5000 characters. Helpful details include benefits, material, dimensions, compatibility, package contents and care instructions when relevant. Do not guess missing specifications.</p></div>
           </div>
           <div className="space-y-2"><Label htmlFor="product-images">Product images (up to 5, JPG/PNG/WebP, max 5 MB each)</Label><Input id="product-images" type="file" accept="image/jpeg,image/png,image/webp" multiple disabled={uploading||images.length>=5} onChange={uploadImages}/>{uploading&&<p className="text-sm text-muted-foreground">Uploading images…</p>}
             {images.length>0&&<div className="flex flex-wrap gap-3">{images.map((url,i)=><div key={url} className="relative"><img src={url} alt={`Product image ${i+1}`} className="h-20 w-20 rounded-md border object-cover"/><Button type="button" size="icon" variant="destructive" className="absolute -right-2 -top-2 h-6 w-6" onClick={()=>setImages(prev=>prev.filter(x=>x!==url))} aria-label="Remove image"><Trash2 className="h-3 w-3"/></Button></div>)}</div>}
