@@ -34,6 +34,8 @@ const SellerDashboard = lazy(() => import("./pages/SellerDashboard"));
 const SellerStoreDetails = lazy(() => import("./pages/SellerStoreDetails"));
 const AdminSellerDetailsReview = lazy(() => import("./pages/AdminSellerDetailsReview"));
 const SellerOrders = lazy(() => import("./pages/SellerOrders"));
+const SellerPickupAddresses = lazy(() => import("./pages/SellerPickupAddresses"));
+const AdminPickupAddresses = lazy(() => import("./pages/AdminPickupAddresses"));
 const ResetPassword = lazy(() => import("./pages/ResetPassword"));
 const Admin = lazy(() => import("./pages/Admin"));
 const AdminSellerReview = lazy(() => import("./pages/AdminSellerReview"));
@@ -92,6 +94,8 @@ const App = () => (
               <Route path="/seller/dashboard" element={<SellerDashboard />} />
               <Route path="/seller/store-details" element={<SellerStoreDetails />} />
               <Route path="/seller/orders" element={<SellerOrders />} />
+              <Route path="/seller/pickup-addresses" element={<SellerPickupAddresses />} />
+              <Route path="/admin/pickup-addresses" element={<ProtectedRoute requireAdmin><AdminPickupAddresses /></ProtectedRoute>} />
               <Route path="/seller/products" element={<SellerProducts />} />
               <Route path="/reset-password" element={<ResetPassword />} />
               <Route path="/admin" element={<ProtectedRoute requireAdmin><Admin /></ProtectedRoute>} />
