@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { SellerPortalLayout } from "@/components/seller/SellerPortalLayout";
@@ -57,7 +57,7 @@ export default function SellerPickupAddresses() {
 
   useEffect(() => { void load(); }, [load]);
 
-  const save = async (event: React.FormEvent) => {
+  const save = async (event: FormEvent) => {
     event.preventDefault();
     if (!sellerId) return;
     if (!/^\\d{6}$/.test(form.postal_code.trim())) {
