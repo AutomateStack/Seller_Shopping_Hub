@@ -25,3 +25,6 @@ verify_jwt = false
 
 [functions.dynamic-sitemap]
 verify_jwt = false
+
+[functions.delhivery-integration]
+verify_jwt = true
