@@ -57,10 +57,13 @@ Deno.serve(async (req: Request) => {
       const responseText = await response.text();
       let responseBody: unknown;
       try { responseBody = JSON.parse(responseText); } catch { responseBody = { raw: responseText.slice(0, 2000) }; }
-      // Delhivery documents HTTP 200 with a JSON success message, but does not guarantee
-      // a boolean "success" property. Treat HTTP 2xx + a JSON object as success;
-      // API validation failures are documented as HTTP 400.
-      const validSuccessBody = typeof responseBody === "object" && responseBody !== null && !("raw" in responseBody);
+      // Delhivery documents a JSON success message on successful warehouse creation.
+      // Accept a truthy success message (boolean or text), but never treat an arbitrary
+      // JSON error object as a successful registration.
+      const validSuccessBody = typeof responseBody === "object" && responseBody !== null
+        && "success" in responseBody
+        && Boolean((responseBody as { success?: unknown }).success)
+        && !("error" in responseBody);
       if (!response.ok || !validSuccessBody) {
         const message = typeof responseBody === "object" && responseBody !== null ? JSON.stringify(responseBody) : String(responseBody);
         await admin.schema("seller").from("delhivery_warehouse_mappings").update({ registration_status: "failed", last_error: message.slice(0, 2000), delhivery_response: responseBody }).eq("id", mapping.id);
