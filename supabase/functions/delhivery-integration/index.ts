@@ -139,7 +139,9 @@ Deno.serve(async (req: Request) => {
       let responseBody: unknown;
       try { responseBody = JSON.parse(responseText); } catch { responseBody = { raw: responseText.slice(0, 2000) }; }
 
-      if (!response.ok) {
+      const apiSuccess = typeof responseBody === "object" && responseBody !== null
+        && "success" in responseBody && (responseBody as { success?: unknown }).success === true;
+      if (!response.ok || !apiSuccess) {
         const message = typeof responseBody === "object" && responseBody !== null
           ? JSON.stringify(responseBody) : String(responseBody);
         await admin.schema("seller").from("delhivery_warehouse_mappings").update({
