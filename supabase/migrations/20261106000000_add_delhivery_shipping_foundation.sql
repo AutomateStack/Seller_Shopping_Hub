@@ -233,3 +233,23 @@ for each row execute function public.set_updated_at();
 create trigger delhivery_pickup_requests_set_updated_at
 before update on orders.delhivery_pickup_requests
 for each row execute function public.set_updated_at();
+
+
+-- Keep approved/registered pickup locations stable for existing shipments.
+drop policy if exists seller_addresses_delete_own on seller.seller_addresses;
+create policy seller_addresses_delete_own
+on seller.seller_addresses
+for delete to authenticated
+using (
+  review_status <> 'approved'
+  and exists (
+    select 1 from seller.seller_profiles sp
+    where sp.id = seller_addresses.seller_id
+      and sp.user_id = (select auth.uid())
+  )
+  and not exists (
+    select 1 from seller.delhivery_warehouse_mappings wm
+    where wm.address_id = seller_addresses.id
+      and wm.registration_status = 'registered'
+  )
+);
