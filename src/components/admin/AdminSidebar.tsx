@@ -55,6 +55,10 @@ export function AdminSidebar({ activeTab, onTabChange }: AdminSidebarProps) {
       navigate("/admin/seller-products");
       return;
     }
+    if (value === "pickup-addresses") {
+      navigate("/admin/pickup-addresses");
+      return;
+    }
 
     if (onMarketplaceRoute || onWhatsAppCatalogRoute || onSellerReviewRoute || onProductReviewRoute || onMarketplaceOrdersRoute || onSellerProductsRoute || onPickupAddressesRoute) {
       window.location.assign(`/admin?tab=${encodeURIComponent(value)}`);
