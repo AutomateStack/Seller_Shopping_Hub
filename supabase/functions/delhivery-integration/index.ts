@@ -83,7 +83,19 @@ Deno.serve(async (req: Request) => {
 
       const warehouseName = existing?.warehouse_name ??
         `SH-${seller.id.replaceAll("-", "").slice(0, 8).toUpperCase()}-${address.id.replaceAll("-", "").slice(0, 8).toUpperCase()}`;
+      const { data: returnAddress, error: returnError } = await admin.schema("seller")
+        .from("seller_addresses")
+        .select("contact_phone,address_line1,address_line2,city,state,postal_code,country_code")
+        .eq("seller_id", seller.id).eq("address_type", "return").order("created_at", { ascending: false }).limit(1).maybeSingle();
+      if (returnError) throw returnError;
       const fullAddress = [address.address_line1, address.address_line2].filter(Boolean).join(", ");
+      const returnFullAddress = returnAddress
+        ? [returnAddress.address_line1, returnAddress.address_line2].filter(Boolean).join(", ")
+        : fullAddress;
+      const returnPin = returnAddress?.postal_code || address.postal_code;
+      const returnCity = returnAddress?.city || address.city;
+      const returnState = returnAddress?.state || address.state;
+      const returnCountry = returnAddress?.country_code || address.country_code;
       const phone = (address.contact_phone || seller.contact_phone || "").replace(/[^0-9]/g, "");
       const email = seller.contact_email;
       if (!phone || !email) return json({ error: "Seller contact phone and email are required for Delhivery warehouse registration" }, 422);
@@ -97,11 +109,11 @@ Deno.serve(async (req: Request) => {
         country: address.country_code === "IN" ? "India" : address.country_code,
         email,
         registered_name: seller.business_name || seller.store_name,
-        return_address: fullAddress,
-        return_pin: address.postal_code,
-        return_city: address.city,
-        return_state: address.state,
-        return_country: address.country_code === "IN" ? "India" : address.country_code,
+        return_address: returnFullAddress,
+        return_pin: returnPin,
+        return_city: returnCity,
+        return_state: returnState,
+        return_country: returnCountry === "IN" ? "India" : returnCountry,
       };
 
       const { data: mapping, error: upsertError } = await admin.schema("seller")
