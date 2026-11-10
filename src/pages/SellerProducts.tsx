@@ -175,7 +175,12 @@ export default function SellerProducts() {
       (editingProduct.description ?? "") !== payload.description ||
       editingProduct.category !== payload.category ||
       (editingProduct.brand ?? "") !== payload.brand ||
-      (editingProduct.sku ?? null) !== payload.sku ||\n      (editingProduct.hsn_code ?? null) !== payload.hsn_code ||\n      editingProduct.shipping_weight_grams !== payload.shipping_weight_grams ||\n      editingProduct.package_length_cm !== payload.package_length_cm ||\n      editingProduct.package_breadth_cm !== payload.package_breadth_cm ||\n      editingProduct.package_height_cm !== payload.package_height_cm ||
+      (editingProduct.sku ?? null) !== payload.sku ||
+      (editingProduct.hsn_code ?? null) !== payload.hsn_code ||
+      editingProduct.shipping_weight_grams !== payload.shipping_weight_grams ||
+      editingProduct.package_length_cm !== payload.package_length_cm ||
+      editingProduct.package_breadth_cm !== payload.package_breadth_cm ||
+      editingProduct.package_height_cm !== payload.package_height_cm ||
       Number(editingProduct.price) !== price ||
       (editingProduct.mrp == null ? null : Number(editingProduct.mrp)) !== mrp ||
       JSON.stringify(editingProduct.image_urls||[]) !== JSON.stringify(images)
