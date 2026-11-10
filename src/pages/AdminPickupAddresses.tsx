@@ -23,6 +23,7 @@ export default function AdminPickupAddresses() {
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
+  const [validated, setValidated] = useState<Record<string, boolean>>({});
   const load = useCallback(async () => {
     setLoading(true);
     const { data, error } = await db.schema("seller").from("seller_addresses")
@@ -48,17 +49,34 @@ export default function AdminPickupAddresses() {
     if (error) {
       setBusy(""); toast({ title: "Could not update address review", description: error.message, variant: "destructive" }); return;
     }
-    if (decision === "approved" && address.seller_profiles?.onboarding_status === "approved" && address.seller_profiles?.account_status === "active") {
-      const { data, error: registrationError } = await supabase.functions.invoke("delhivery-integration", { body: { action: "register-warehouse", address_id: address.id } });
-      if (registrationError || data?.error) {
-        toast({ title: "Address approved; Delhivery registration needs attention", description: registrationError?.message || data?.error || "Registration failed.", variant: "destructive" });
-      } else {
-        toast({ title: "Pickup address approved and registered", description: data?.warehouse_name ? `Delhivery pickup location: ${data.warehouse_name}` : "Delhivery registration completed." });
-      }
-    } else {
-      toast({ title: decision === "approved" ? "Pickup address approved" : decision === "rejected" ? "Pickup address rejected" : "Changes requested" });
-    }
+    setValidated(v => ({ ...v, [address.id]: false }));
+    toast({ title: decision === "approved" ? "Pickup address approved" : decision === "rejected" ? "Pickup address rejected" : "Changes requested", description: decision === "approved" ? "Next, run the dry-run validation before any Delhivery registration." : undefined });
     setBusy(""); await load();
+  };
+
+  const previewWarehouse = async (address: Address) => {
+    setBusy(address.id);
+    const { data, error } = await supabase.functions.invoke("delhivery-integration", { body: { action: "preview-warehouse", address_id: address.id } });
+    setBusy("");
+    if (error || data?.error) {
+      setValidated(v => ({ ...v, [address.id]: false }));
+      toast({ title: "Warehouse validation failed", description: error?.message || data?.error || "Validation failed.", variant: "destructive" });
+      return;
+    }
+    setValidated(v => ({ ...v, [address.id]: true }));
+    toast({ title: "Dry-run validation passed", description: "Payload is valid. No Delhivery API request was made." });
+  };
+
+  const registerWarehouse = async (address: Address) => {
+    setBusy(address.id);
+    const { data, error } = await supabase.functions.invoke("delhivery-integration", { body: { action: "register-warehouse", address_id: address.id } });
+    setBusy("");
+    if (error || data?.error) {
+      toast({ title: "Delhivery registration failed", description: error?.message || data?.error || "Registration failed.", variant: "destructive" });
+    } else {
+      toast({ title: "Delhivery registration complete", description: data?.warehouse_name ? `Pickup location: ${data.warehouse_name}` : "Registration completed." });
+    }
+    await load();
   };
 
   return <main className="container mx-auto max-w-6xl space-y-6 px-4 py-8">
@@ -71,10 +89,14 @@ export default function AdminPickupAddresses() {
           {mapping && <div className="flex items-center gap-2 rounded-md border p-3 text-sm"><Truck className="h-4 w-4" /><span>Delhivery: {mapping.warehouse_name}</span><Badge variant={mapping.registration_status === "registered" ? "default" : mapping.registration_status === "failed" ? "destructive" : "secondary"}>{mapping.registration_status}</Badge></div>}
           {address.review_note && <p className="text-sm text-muted-foreground">Previous note: {address.review_note}</p>}
           {address.review_status !== "approved" && <div className="space-y-2"><Label htmlFor={`pickup-note-${address.id}`}>Review note (required for rejection or changes)</Label><Textarea id={`pickup-note-${address.id}`} value={notes[address.id] ?? ""} onChange={e => setNotes(v => ({ ...v, [address.id]: e.target.value }))} rows={2} placeholder="Explain what needs correction…" />
-            <div className="flex flex-wrap gap-2"><Button size="sm" disabled={!!busy || !canApprove} onClick={() => void review(address, "approved")}>{busy === address.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Truck className="mr-2 h-4 w-4" />}Approve and register with Delhivery</Button><Button size="sm" variant="outline" disabled={!!busy} onClick={() => void review(address, "changes_requested")}>Request changes</Button><Button size="sm" variant="destructive" disabled={!!busy} onClick={() => void review(address, "rejected")}>Reject</Button></div>
+            <div className="flex flex-wrap gap-2"><Button size="sm" disabled={!!busy || !canApprove} onClick={() => void review(address, "approved")}>{busy === address.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Approve address</Button><Button size="sm" variant="outline" disabled={!!busy} onClick={() => void review(address, "changes_requested")}>Request changes</Button><Button size="sm" variant="destructive" disabled={!!busy} onClick={() => void review(address, "rejected")}>Reject</Button></div>
             {!canApprove && <p className="text-xs text-amber-700">Seller onboarding must be approved and account active before warehouse registration.</p>}
           </div>}
-          {address.review_status === "approved" && mapping?.registration_status === "failed" && <Button size="sm" variant="outline" disabled={!!busy} onClick={async () => { setBusy(address.id); const { data, error } = await supabase.functions.invoke("delhivery-integration", { body: { action: "register-warehouse", address_id: address.id } }); setBusy(""); if (error || data?.error) toast({ title: "Registration retry failed", description: error?.message || data?.error, variant: "destructive" }); else toast({ title: "Delhivery registration complete" }); await load(); }}>Retry Delhivery registration</Button>}
+          {address.review_status === "approved" && <div className="flex flex-wrap gap-2">
+            <Button size="sm" variant="outline" disabled={!!busy || !canApprove || mapping?.registration_status === "registered"} onClick={() => void previewWarehouse(address)}>{busy === address.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Validate payload (dry run)</Button>
+            <Button size="sm" disabled={!!busy || !validated[address.id] || mapping?.registration_status === "registered"} onClick={() => void registerWarehouse(address)}><Truck className="mr-2 h-4 w-4" />Register with Delhivery</Button>
+            {validated[address.id] && <span className="self-center text-xs text-muted-foreground">Dry run passed — no Delhivery request was made.</span>}
+          </div>}
         </CardContent></Card>;
     })}
   </main>;
