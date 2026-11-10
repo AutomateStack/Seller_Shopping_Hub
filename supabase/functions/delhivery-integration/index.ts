@@ -119,8 +119,6 @@ Deno.serve(async (req: Request) => {
       const payload = { phone, city: address.city, name: warehouseName, pin: address.postal_code, address: fullAddress, country: address.country_code === "IN" ? "India" : address.country_code, email, registered_name: seller.business_name || seller.store_name, return_address: returnFullAddress, return_pin: returnAddress?.postal_code || address.postal_code, return_city: returnAddress?.city || address.city, return_state: returnAddress?.state || address.state, return_country: (returnAddress?.country_code || address.country_code) === "IN" ? "India" : (returnAddress?.country_code || address.country_code) };
       const { data: mapping, error: upsertError } = await admin.schema("seller").from("delhivery_warehouse_mappings").upsert({ seller_id: seller.id, address_id: address.id, warehouse_name: warehouseName, registration_status: "pending", last_error: null }, { onConflict: "address_id" }).select("id").single();
       if (upsertError) throw upsertError;
-      const token = required(Deno.env.get("DELHIVERY_API_TOKEN"), "DELHIVERY_API_TOKEN");
-      const baseUrl = (Deno.env.get("DELHIVERY_BASE_URL") || "https://staging-express.delhivery.com").replace(/\/$/, "");
       const response = await fetch(`${baseUrl}/api/backend/clientwarehouse/create/`, { method: "POST", headers: { Authorization: `Token ${token}`, "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(payload) });
       const responseText = await response.text();
       let responseBody: unknown;
