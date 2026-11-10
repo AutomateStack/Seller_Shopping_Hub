@@ -10,6 +10,33 @@ const corsHeaders = {
 const json = (body: unknown, status = 200) => new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, "Content-Type": "application/json" } });
 const required = (value: unknown, label: string) => { if (typeof value !== "string" || !value.trim()) throw new Error(`Missing ${label}`); return value.trim(); };
 
+const checkPickupPin = async (pin: string, token: string, baseUrl: string) => {
+  if (!/^\\d{6}$/.test(pin)) throw new Error("Pickup PIN must contain exactly 6 digits");
+  const url = new URL("/c/api/pin-codes/json/", baseUrl);
+  url.searchParams.set("filter_codes", pin);
+  const response = await fetch(url, {
+    method: "GET",
+    headers: { Authorization: `Token ${token}`, Accept: "application/json" },
+  });
+  const text = await response.text();
+  let body: any;
+  try { body = JSON.parse(text); } catch { body = null; }
+  if (!response.ok) throw new Error(`Delhivery PIN serviceability check failed (HTTP ${response.status})`);
+  const postal = body?.delivery_codes?.[0]?.postal_code;
+  if (!postal) return { serviceable: false, pickup: false, pin, reason: "PIN was not found in Delhivery's serviceability records." };
+  const pickup = String(postal.pickup || "").toUpperCase() === "Y";
+  const remarks = String(postal.remarks || "").trim();
+  return {
+    serviceable: pickup && !remarks,
+    pickup,
+    pin,
+    city: postal.city || null,
+    state_code: postal.state_code || null,
+    remarks: remarks || null,
+    reason: pickup && !remarks ? null : (remarks || "Delhivery does not mark this PIN as pickup-serviceable."),
+  };
+};
+
 Deno.serve(async (req: Request) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers: corsHeaders });
   if (req.method !== "POST") return json({ error: "Method not allowed" }, 405);
@@ -28,6 +55,19 @@ Deno.serve(async (req: Request) => {
     if (!adminRow || !["operations", "super_admin"].includes(adminRow.admin_role)) return json({ error: "Only marketplace operations admins can manage Delhivery pickup locations" }, 403);
     const body = await req.json();
     const action = required(body.action, "action");
+    if (action === "check-pincode") {
+      const addressId = required(body.address_id, "address_id");
+      const { data: address, error } = await admin.schema("seller").from("seller_addresses")
+        .select("id,address_type,postal_code,review_status").eq("id", addressId).maybeSingle();
+      if (error) throw error;
+      if (!address) return json({ error: "Pickup address not found" }, 404);
+      if (address.address_type !== "pickup" || address.review_status !== "approved") return json({ error: "Only approved pickup addresses can be checked" }, 409);
+      const token = required(Deno.env.get("DELHIVERY_API_TOKEN"), "DELHIVERY_API_TOKEN (testing token)");
+      const baseUrl = (Deno.env.get("DELHIVERY_BASE_URL") || "https://staging-express.delhivery.com").replace(/\\/$/, "");
+      if (baseUrl !== "https://staging-express.delhivery.com") return json({ error: "PIN checks are locked to Delhivery staging until production is explicitly enabled." }, 409);
+      const result = await checkPickupPin(address.postal_code, token, baseUrl);
+      return json({ ok: true, ...result });
+    }
     if (action === "preview-warehouse") {
       const addressId = required(body.address_id, "address_id");
       const { data: address, error: addressError } = await admin.schema("seller").from("seller_addresses").select("id,seller_id,address_type,contact_name,contact_phone,address_line1,address_line2,city,state,postal_code,country_code,review_status").eq("id", addressId).maybeSingle();
@@ -60,6 +100,11 @@ Deno.serve(async (req: Request) => {
       const { data: seller, error: sellerError } = await admin.schema("seller").from("seller_profiles").select("id,store_name,business_name,contact_email,contact_phone,onboarding_status,account_status").eq("id", address.seller_id).single();
       if (sellerError) throw sellerError;
       if (seller.onboarding_status !== "approved" || seller.account_status !== "active") return json({ error: "Seller account must be approved and active" }, 409);
+      const token = required(Deno.env.get("DELHIVERY_API_TOKEN"), "DELHIVERY_API_TOKEN (testing token)");
+      const baseUrl = (Deno.env.get("DELHIVERY_BASE_URL") || "https://staging-express.delhivery.com").replace(/\\/$/, "");
+      if (baseUrl !== "https://staging-express.delhivery.com") return json({ error: "Warehouse registration is locked to Delhivery staging until production is explicitly enabled." }, 409);
+      const pinCheck = await checkPickupPin(address.postal_code, token, baseUrl);
+      if (!pinCheck.serviceable) return json({ error: "Pickup PIN is not serviceable by Delhivery", pin_check: pinCheck }, 422);
       const { data: existing, error: existingError } = await admin.schema("seller").from("delhivery_warehouse_mappings").select("id,warehouse_name,registration_status").eq("address_id", address.id).maybeSingle();
       if (existingError) throw existingError;
       if (existing?.registration_status === "registered") return json({ ok: true, already_registered: true, warehouse_name: existing.warehouse_name });
