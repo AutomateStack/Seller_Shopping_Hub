@@ -26,6 +26,7 @@ export default function AdminPickupAddresses() {
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState("");
   const [validated, setValidated] = useState<Record<string, boolean>>({});
+  const [pinChecked, setPinChecked] = useState<Record<string, boolean>>({});
   const load = useCallback(async () => {
     setLoading(true);
     const { data, error } = await db.schema("seller").from("seller_addresses")
@@ -52,6 +53,7 @@ export default function AdminPickupAddresses() {
       setBusy(""); toast({ title: "Could not update address review", description: error.message, variant: "destructive" }); return;
     }
     setValidated(v => ({ ...v, [address.id]: false }));
+    setPinChecked(v => ({ ...v, [address.id]: false }));
     toast({ title: decision === "approved" ? "Pickup address approved" : decision === "rejected" ? "Pickup address rejected" : "Changes requested", description: decision === "approved" ? "Next, run the dry-run validation before any Delhivery registration." : undefined });
     setBusy(""); await load();
   };
@@ -69,6 +71,18 @@ export default function AdminPickupAddresses() {
     toast({ title: "Dry-run validation passed", description: "Payload is valid. No Delhivery API request was made." });
   };
 
+  const checkPickupPin = async (address: Address) => {
+    setBusy(address.id);
+    const { data, error } = await supabase.functions.invoke("delhivery-integration", { body: { action: "check-pincode", address_id: address.id } });
+    setBusy("");
+    if (error || data?.error || !data?.serviceable) {
+      setPinChecked(v => ({ ...v, [address.id]: false }));
+      toast({ title: "Pickup PIN check failed", description: error?.message || data?.error || data?.reason || "Delhivery does not mark this PIN as pickup-serviceable.", variant: "destructive" });
+      return;
+    }
+    setPinChecked(v => ({ ...v, [address.id]: true }));
+    toast({ title: "Pickup PIN is serviceable", description: data.pin + " is enabled for pickup in Delhivery" + (data.city ? " · " + data.city : "") });
+  };
   const registerWarehouse = async (address: Address) => {
     setBusy(address.id);
     const { data, error } = await supabase.functions.invoke("delhivery-integration", { body: { action: "register-warehouse", address_id: address.id } });
@@ -104,8 +118,10 @@ export default function AdminPickupAddresses() {
           </div>}
           {address.review_status === "approved" && <div className="flex flex-wrap gap-2">
             <Button size="sm" variant="outline" disabled={!!busy || !canApprove || mapping?.registration_status === "registered"} onClick={() => void previewWarehouse(address)}>{busy === address.id ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}Validate payload (dry run)</Button>
-            <Button size="sm" disabled={!!busy || !validated[address.id] || mapping?.registration_status === "registered"} onClick={() => void registerWarehouse(address)}><Truck className="mr-2 h-4 w-4" />Register with Delhivery</Button>
-            {validated[address.id] && <span className="self-center text-xs text-muted-foreground">Dry run passed — no Delhivery request was made.</span>}
+            <Button size="sm" variant="outline" disabled={!!busy || mapping?.registration_status === "registered"} onClick={() => void checkPickupPin(address)}>Check pickup PIN with Delhivery</Button>
+            <Button size="sm" disabled={!!busy || !validated[address.id] || !pinChecked[address.id] || mapping?.registration_status === "registered"} onClick={() => void registerWarehouse(address)}><Truck className="mr-2 h-4 w-4" />Register with Delhivery</Button>
+            {validated[address.id] && <span className="self-center text-xs text-muted-foreground">Local payload validation passed.</span>}
+            {pinChecked[address.id] && <span className="self-center text-xs text-muted-foreground">Pickup PIN serviceability passed.</span>}
           </div>}
         </CardContent></Card>;
     })}
