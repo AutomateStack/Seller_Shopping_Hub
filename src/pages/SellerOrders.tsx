@@ -44,7 +44,7 @@ export default function SellerOrders() {
   const selectedOrderStatusHistory = selectedOrderHistory.filter((event: any) => event.event_type === "order_status");
   const load = async (id: string) => {
     const { data, error } = await db.schema("orders").from("marketplace_orders")
-      .select("id,order_number,status,payment_method,payment_status,refund_status,refund_amount,refunded_at,cod_collected_at,total_amount,created_at,shipping_name,shipping_phone,shipping_address,shipping_city,shipping_state,shipping_postal_code,marketplace_order_items(id,product_title,quantity,unit_price,line_total,image_url,hsn_code,seller_gstin,shipping_weight_grams,package_length_cm,package_breadth_cm,package_height_cm),marketplace_order_packages(id,weight_grams,length_cm,breadth_cm,height_cm,packed_at),delhivery_shipments(waybill,shipment_status,label_url),marketplace_order_history(event_type,old_value,new_value,changed_at)")
+      .select("id,order_number,status,payment_method,payment_status,refund_status,refund_amount,refunded_at,cod_collected_at,total_amount,created_at,shipping_name,shipping_phone,shipping_address,shipping_city,shipping_state,shipping_postal_code,marketplace_order_items(id,product_title,quantity,unit_price,line_total,image_url,hsn_code,seller_gstin,shipping_weight_grams,package_length_cm,package_breadth_cm,package_height_cm),marketplace_order_packages(id,weight_grams,length_cm,breadth_cm,height_cm,packed_at),delhivery_shipments(id,waybill,shipment_status,label_url,last_error),marketplace_order_history(event_type,old_value,new_value,changed_at)")
       .eq("seller_id", id).order("created_at", { ascending: false }).limit(100);
     if (error) setError(error.message); else setOrders(data || []);
     const { data: requests, error: requestError } = await db.schema("orders").from("marketplace_return_requests").select("id,order_id,buyer_id,reason,status,seller_note,created_at,restocked_at,marketplace_orders(order_number,total_amount,status,shipping_name)").eq("seller_id", id).order("created_at", { ascending: false });
@@ -110,6 +110,14 @@ export default function SellerOrders() {
     if (error) { setError(error.message); return; }
     setPackingOrderId(null);
     setPackingDraft({ weight_grams: "", length_cm: "", breadth_cm: "", height_cm: "" });
+    await load(sellerId);
+  };
+  const createDelhiveryShipment = async (orderId: string) => {
+    setUpdating(orderId); setError("");
+    const { data, error } = await supabase.functions.invoke("delhivery-integration", { body: { action: "create-shipment", order_id: orderId } });
+    setUpdating("");
+    if (error) { setError(error.message || "Could not contact the shipment service."); return; }
+    if (data?.error) { setError(data.error); await load(sellerId); return; }
     await load(sellerId);
   };
   const filtered = orders.filter(o => {
@@ -215,6 +223,14 @@ export default function SellerOrders() {
         </div>
         <div className="flex flex-wrap gap-2"><Button size="sm" disabled={updating===order.id} onClick={()=>void confirmPacking(order.id)}>{updating===order.id?<Loader2 className="mr-2 h-4 w-4 animate-spin"/>:<CheckCircle2 className="mr-2 h-4 w-4"/>}Save packing details</Button><Button size="sm" variant="ghost" onClick={()=>setPackingOrderId(null)}>Cancel</Button></div>
       </div>}
+      {order.delhivery_shipments?.waybill && <div className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/5 p-3">
+        <div><p className="text-sm font-semibold">Delhivery AWB created</p><p className="font-mono text-sm">{order.delhivery_shipments.waybill}</p><p className="text-xs text-muted-foreground">Status: {order.delhivery_shipments.shipment_status}</p></div>
+        <Button size="sm" variant="outline" onClick={()=>navigator.clipboard.writeText(order.delhivery_shipments.waybill)}>Copy AWB</Button>
+      </div>}
+      {order.marketplace_order_packages && !order.delhivery_shipments?.id && <Button size="sm" disabled={updating===order.id} onClick={()=>void createDelhiveryShipment(order.id)}>
+        {updating===order.id?<Loader2 className="mr-2 h-4 w-4 animate-spin"/>:<Truck className="mr-2 h-4 w-4"/>}Create Delhivery AWB (staging)
+      </Button>}
+      {order.delhivery_shipments?.id && !order.delhivery_shipments?.waybill && <Alert variant="destructive"><AlertTriangle className="h-4 w-4"/><AlertTitle>Shipment needs reconciliation</AlertTitle><AlertDescription>{order.delhivery_shipments.last_error || "A shipment request exists but no AWB was confirmed. Contact marketplace operations before retrying."}</AlertDescription></Alert>}
       {order.marketplace_order_packages && <p className="text-xs text-muted-foreground">Saved parcel: {order.marketplace_order_packages.weight_grams} g · {order.marketplace_order_packages.length_cm} × {order.marketplace_order_packages.breadth_cm} × {order.marketplace_order_packages.height_cm} cm</p>}
     </div>}
     {order.cod_collected_at && <p className="flex items-center gap-1 text-xs text-muted-foreground"><CheckCircle2 className="h-3 w-3 text-emerald-600"/>Collected {new Date(order.cod_collected_at).toLocaleString()}</p>}</CardContent></Card>)}
