@@ -11,7 +11,7 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 const required = (value: unknown, label: string) => { if (typeof value !== "string" || !value.trim()) throw new Error(`Missing ${label}`); return value.trim(); };
 
 const checkPickupPin = async (pin: string, token: string, baseUrl: string) => {
-  if (!/^\\d{6}$/.test(pin)) throw new Error("Pickup PIN must contain exactly 6 digits");
+  if (!/^\d{6}$/.test(pin)) throw new Error("Pickup PIN must contain exactly 6 digits");
   const url = new URL("/c/api/pin-codes/json/", baseUrl);
   url.searchParams.set("filter_codes", pin);
   const response = await fetch(url, {
