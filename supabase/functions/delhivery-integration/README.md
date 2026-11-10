@@ -12,13 +12,14 @@ Configure these in the Seller Shopping Hub Supabase project before deployment:
 
 Supabase provides `SUPABASE_URL`, `SUPABASE_ANON_KEY`, and `SUPABASE_SERVICE_ROLE_KEY` to Edge Functions.
 
-## Current action
+## Actions
 
-POST `{ "action": "register-warehouse", "address_id": "<approved seller address UUID>" }`
+- Dry-run validation (no Delhivery request and no API token required): POST `{ "action": "preview-warehouse", "address_id": "<approved seller address UUID>" }`. This validates the approved pickup address, seller status, required fields, and payload construction. Contact details are masked in the response.
+- Actual registration: POST `{ "action": "register-warehouse", "address_id": "<approved seller address UUID>" }`
 
 The caller must be authenticated and have the marketplace `operations` or `super_admin` role. The seller must be approved and active, and the pickup address must have admin approval.
 
-The function creates or reuses the local warehouse mapping, calls Delhivery's Client Warehouse Creation endpoint, and records the response/status. Failed registrations can be retried from the admin pickup-address review page.
+The function creates or reuses the local warehouse mapping, calls Delhivery's Client Warehouse Creation endpoint, and records the response/status. Failed registrations can be retried from the admin pickup-address review page. The dry-run action never creates a mapping and never calls Delhivery.
 
 The return address uses the seller's latest address with `address_type = 'return'`, falling back to the approved pickup address when no return address exists.
 
