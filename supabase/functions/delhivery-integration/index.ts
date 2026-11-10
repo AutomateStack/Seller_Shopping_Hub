@@ -11,30 +11,22 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 const required = (value: unknown, label: string) => { if (typeof value !== "string" || !value.trim()) throw new Error(`Missing ${label}`); return value.trim(); };
 
 const checkPickupPin = async (pin: string, token: string, baseUrl: string) => {
-  if (!/^\d{6}$/.test(pin)) throw new Error("Pickup PIN must contain exactly 6 digits");
+  if (!/^\\d{6}$/.test(pin)) throw new Error("PIN must contain exactly 6 digits");
   const url = new URL("/c/api/pin-codes/json/", baseUrl);
   url.searchParams.set("filter_codes", pin);
-  const response = await fetch(url, {
-    method: "GET",
-    headers: { Authorization: `Token ${token}`, Accept: "application/json" },
-  });
-  const text = await response.text();
+  const response = await fetch(url, { method: "GET", headers: { Authorization: `Token ${token}`, Accept: "application/json" } });
+  const responseText = await response.text();
   let body: any;
-  try { body = JSON.parse(text); } catch { body = null; }
+  try { body = JSON.parse(responseText); } catch { body = null; }
   if (!response.ok) throw new Error(`Delhivery PIN serviceability check failed (HTTP ${response.status})`);
   const postal = body?.delivery_codes?.[0]?.postal_code;
-  if (!postal) return { serviceable: false, pickup: false, pin, reason: "PIN was not found in Delhivery's serviceability records." };
+  if (!postal) return { serviceable: false, pickup: false, prepaid: false, cod: false, pin, reason: "PIN was not found in Delhivery's serviceability records." };
   const pickup = String(postal.pickup || "").toUpperCase() === "Y";
+  const prepaid = String(postal.prepaid || "").toUpperCase() === "Y";
+  const cod = String(postal.cod || "").toUpperCase() === "Y";
   const remarks = String(postal.remarks || "").trim();
-  return {
-    serviceable: pickup && !remarks,
-    pickup,
-    pin,
-    city: postal.city || null,
-    state_code: postal.state_code || null,
-    remarks: remarks || null,
-    reason: pickup && !remarks ? null : (remarks || "Delhivery does not mark this PIN as pickup-serviceable."),
-  };
+  return { serviceable: pickup && !remarks, pickup, prepaid, cod, pin, city: postal.city || null, state_code: postal.state_code || null, remarks: remarks || null,
+    reason: pickup && !remarks ? null : (remarks || "Delhivery does not mark this PIN as pickup-serviceable.") };
 };
 
 Deno.serve(async (req: Request) => {
@@ -50,11 +42,117 @@ Deno.serve(async (req: Request) => {
     const { data: userData, error: userError } = await authClient.auth.getUser();
     if (userError || !userData.user) return json({ error: "Invalid session" }, 401);
     const admin = createClient(supabaseUrl, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
+    if (action === "create-shipment") {
+      const orderId = required(body.order_id, "order_id");
+      const { data: seller, error: sellerError } = await admin.schema("seller").from("seller_profiles")
+        .select("id,user_id,store_name,business_name,gstin,onboarding_status,account_status")
+        .eq("user_id", userData.user.id).maybeSingle();
+      if (sellerError) throw sellerError;
+      if (!seller || seller.onboarding_status !== "approved" || seller.account_status !== "active") return json({ error: "An active approved seller account is required" }, 403);
+      const { data: order, error: orderError } = await admin.schema("orders").from("marketplace_orders")
+        .select("id,order_number,seller_id,status,payment_method,payment_status,total_amount,created_at,shipping_name,shipping_phone,shipping_address,shipping_city,shipping_state,shipping_postal_code,marketplace_order_items(id,product_title,quantity,hsn_code,seller_gstin),marketplace_order_packages(id,pickup_address_id,weight_grams,length_cm,breadth_cm,height_cm,packed_at)")
+        .eq("id", orderId).eq("seller_id", seller.id).maybeSingle();
+      if (orderError) throw orderError;
+      if (!order) return json({ error: "Order not found for this seller" }, 404);
+      if (order.status !== "processing") return json({ error: "Only processing orders can be manifested" }, 409);
+      const parcel = Array.isArray(order.marketplace_order_packages) ? order.marketplace_order_packages[0] : order.marketplace_order_packages;
+      if (!parcel?.packed_at) return json({ error: "Confirm the final packed parcel before creating an AWB" }, 409);
+      const items = Array.isArray(order.marketplace_order_items) ? order.marketplace_order_items : [];
+      if (!items.length) return json({ error: "Order has no shipment items" }, 422);
+      const hsnCodes = [...new Set(items.map((item: any) => String(item.hsn_code || "").trim()))];
+      const sellerGstins = [...new Set(items.map((item: any) => String(item.seller_gstin || "").trim().toUpperCase()))];
+      if (hsnCodes.some((value: string) => !/^\\d{4,8}$/.test(value)) || sellerGstins.length !== 1 || !/^[0-9A-Z]{15}$/.test(sellerGstins[0])) {
+        return json({ error: "Shipment blocked: valid HSN codes and one valid 15-character seller GSTIN are required on every order item. Update product details and place a new order." }, 422);
+      }
+      const token = required(Deno.env.get("DELHIVERY_API_TOKEN"), "DELHIVERY_API_TOKEN (staging token)");
+      const clientName = required(Deno.env.get("DELHIVERY_CLIENT_NAME"), "DELHIVERY_CLIENT_NAME (exact Delhivery client name)");
+      const baseUrl = (Deno.env.get("DELHIVERY_BASE_URL") || "https://staging-express.delhivery.com").replace(/\\/$/, "");
+      if (baseUrl !== "https://staging-express.delhivery.com") return json({ error: "Shipment creation is locked to Delhivery staging. Production is not enabled." }, 409);
+      const { data: pickupAddress, error: pickupError } = await admin.schema("seller").from("seller_addresses")
+        .select("id,contact_phone,address_line1,address_line2,city,state,postal_code,country_code,review_status,address_type")
+        .eq("id", parcel.pickup_address_id).eq("seller_id", seller.id).maybeSingle();
+      if (pickupError) throw pickupError;
+      if (!pickupAddress || pickupAddress.address_type !== "pickup" || pickupAddress.review_status !== "approved") return json({ error: "The saved pickup address is no longer approved" }, 409);
+      const { data: warehouse, error: warehouseError } = await admin.schema("seller").from("delhivery_warehouse_mappings")
+        .select("warehouse_name,registration_status").eq("address_id", pickupAddress.id).eq("seller_id", seller.id).maybeSingle();
+      if (warehouseError) throw warehouseError;
+      if (!warehouse || warehouse.registration_status !== "registered") return json({ error: "The pickup warehouse must be registered with Delhivery before shipment creation" }, 409);
+      const { data: existing, error: existingError } = await admin.schema("orders").from("delhivery_shipments")
+        .select("id,waybill,shipment_status,last_error").eq("order_id", order.id).maybeSingle();
+      if (existingError) throw existingError;
+      if (existing) {
+        if (existing.waybill) return json({ ok: true, already_created: true, waybill: existing.waybill, shipment_status: existing.shipment_status });
+        return json({ error: "A shipment request already exists for this order without a confirmed AWB. To prevent duplicate manifests, reconcile this order in Delhivery staging first.", shipment_status: existing.shipment_status, last_error: existing.last_error }, 409);
+      }
+      const pickupPin = await checkPickupPin(pickupAddress.postal_code, token, baseUrl);
+      if (!pickupPin.pickup) return json({ error: "Pickup PIN is not serviceable by Delhivery", pin_check: pickupPin }, 422);
+      const deliveryPin = await checkPickupPin(order.shipping_postal_code, token, baseUrl);
+      const paymentMode = String(order.payment_method || "").toLowerCase() === "cod" || order.payment_status === "cod_due" ? "COD" : "Pre-paid";
+      if (paymentMode === "COD" ? !deliveryPin.cod : !deliveryPin.prepaid) return json({ error: `Delivery PIN is not serviceable for ${paymentMode} shipments`, pin_check: deliveryPin }, 422);
+      const delhiveryOrderId = `SH-${order.id.replaceAll("-", "").toUpperCase()}`;
+      const { data: reservation, error: reserveError } = await admin.schema("orders").from("delhivery_shipments").insert({
+        order_id: order.id, seller_id: seller.id, pickup_address_id: pickupAddress.id, warehouse_name: warehouse.warehouse_name,
+        delhivery_order_id: delhiveryOrderId, shipment_status: "pending", delhivery_response: { request_started_at: new Date().toISOString(), environment: "staging" }
+      }).select("id").single();
+      if (reserveError) {
+        const { data: concurrent } = await admin.schema("orders").from("delhivery_shipments").select("waybill,shipment_status").eq("order_id", order.id).maybeSingle();
+        if (concurrent?.waybill) return json({ ok: true, already_created: true, waybill: concurrent.waybill, shipment_status: concurrent.shipment_status });
+        return json({ error: "A shipment reservation already exists. Reconcile it before retrying to avoid duplicate AWBs." }, 409);
+      }
+      const phone = String(order.shipping_phone || "").replace(/\\D/g, "");
+      if (phone.length < 10 || phone.length > 12) {
+        await admin.schema("orders").from("delhivery_shipments").update({ shipment_status: "exception", last_error: "Invalid consignee phone number" }).eq("id", reservation.id);
+        return json({ error: "Buyer phone number is invalid for Delhivery" }, 422);
+      }
+      const sellerName = seller.business_name || seller.store_name;
+      const sellerAddress = [pickupAddress.address_line1, pickupAddress.address_line2, pickupAddress.city, pickupAddress.state, pickupAddress.postal_code].filter(Boolean).join(", ");
+      const shipment = {
+        client: clientName, name: order.shipping_name, phone, add: order.shipping_address,
+        pin: String(order.shipping_postal_code), city: order.shipping_city, state: order.shipping_state, country: "India",
+        order: delhiveryOrderId, payment_mode: paymentMode,
+        products_desc: items.map((item: any) => `${item.product_title} x ${item.quantity}`).join(", ").slice(0, 500),
+        hsn_code: hsnCodes.join(","), seller_gst_tin: sellerGstins[0], seller_name: sellerName, seller_add: sellerAddress,
+        seller_inv: order.order_number, order_date: new Date(order.created_at).toISOString().slice(0, 10),
+        quantity: items.reduce((sum: number, item: any) => sum + Number(item.quantity || 0), 0),
+        weight: Number(parcel.weight_grams), shipment_length: Math.ceil(Number(parcel.length_cm)),
+        shipment_width: Math.ceil(Number(parcel.breadth_cm)), shipment_height: Math.ceil(Number(parcel.height_cm)),
+        total_amount: Number(order.total_amount), cod_amount: paymentMode === "COD" ? Number(order.total_amount) : 0,
+      };
+      const requestData = { shipments: [shipment], pickup_location: { name: warehouse.warehouse_name } };
+      try {
+        const form = new URLSearchParams();
+        form.set("format", "json");
+        form.set("data", JSON.stringify(requestData));
+        const response = await fetch(`${baseUrl}/api/cmu/create.json`, {
+          method: "POST", headers: { Authorization: `Token ${token}`, "Content-Type": "application/x-www-form-urlencoded", Accept: "application/json" }, body: form.toString(),
+        });
+        const responseText = await response.text();
+        let responseBody: any;
+        try { responseBody = JSON.parse(responseText); } catch { responseBody = { raw: responseText.slice(0, 2000) }; }
+        const packageResult = Array.isArray(responseBody?.packages) ? responseBody.packages[0] : null;
+        const waybill = String(packageResult?.waybill || packageResult?.wbn || responseBody?.waybill || "").trim();
+        const successFlag = responseBody?.success === true || responseBody?.success === "true" || responseBody?.status === true || Boolean(waybill && !packageResult?.remarks && !responseBody?.error);
+        if (!response.ok || !successFlag || !waybill) {
+          const detail = JSON.stringify(responseBody).slice(0, 2000);
+          await admin.schema("orders").from("delhivery_shipments").update({ shipment_status: "exception", last_error: detail, delhivery_response: responseBody }).eq("id", reservation.id);
+          return json({ error: "Delhivery did not confirm shipment creation. The request is held to prevent duplicate retries; check this order in Delhivery staging before proceeding.", details: responseBody }, 502);
+        }
+        const { error: saveError } = await admin.schema("orders").from("delhivery_shipments").update({ waybill, shipment_status: "manifested", delhivery_response: responseBody, last_error: null }).eq("id", reservation.id);
+        if (saveError) {
+          console.error("AWB created but database save failed; do not retry Delhivery create request", saveError.message);
+          return json({ error: "Delhivery created the shipment, but saving the AWB failed. Do not retry; contact marketplace operations for reconciliation." }, 500);
+        }
+        return json({ ok: true, waybill, shipment_status: "manifested", delhivery_order_id: delhiveryOrderId });
+      } catch (requestError) {
+        const message = requestError instanceof Error ? requestError.message : "Unknown network error";
+        await admin.schema("orders").from("delhivery_shipments").update({ shipment_status: "exception", last_error: `Uncertain Delhivery response: ${message}` }).eq("id", reservation.id);
+        return json({ error: "The Delhivery request outcome is uncertain. This order is locked against automatic retries to prevent duplicate shipments. Reconcile it in Delhivery staging.", shipment_status: "exception" }, 502);
+      }
+    }
+
     const { data: adminRow, error: adminError } = await admin.schema("marketplace").from("marketplace_admins").select("admin_role").eq("user_id", userData.user.id).maybeSingle();
     if (adminError) throw adminError;
     if (!adminRow || !["operations", "super_admin"].includes(adminRow.admin_role)) return json({ error: "Only marketplace operations admins can manage Delhivery pickup locations" }, 403);
-    const body = await req.json();
-    const action = required(body.action, "action");
     if (action === "check-pincode") {
       const addressId = required(body.address_id, "address_id");
       const { data: address, error } = await admin.schema("seller").from("seller_addresses")
