@@ -63,7 +63,7 @@ Deno.serve(async (req: Request) => {
       if (!address) return json({ error: "Pickup address not found" }, 404);
       if (address.address_type !== "pickup" || address.review_status !== "approved") return json({ error: "Only approved pickup addresses can be checked" }, 409);
       const token = required(Deno.env.get("DELHIVERY_API_TOKEN"), "DELHIVERY_API_TOKEN (testing token)");
-      const baseUrl = (Deno.env.get("DELHIVERY_BASE_URL") || "https://staging-express.delhivery.com").replace(/\\/$/, "");
+      const baseUrl = (Deno.env.get("DELHIVERY_BASE_URL") || "https://staging-express.delhivery.com").replace(/\/$/, "");
       if (baseUrl !== "https://staging-express.delhivery.com") return json({ error: "PIN checks are locked to Delhivery staging until production is explicitly enabled." }, 409);
       const result = await checkPickupPin(address.postal_code, token, baseUrl);
       return json({ ok: true, ...result });
@@ -101,7 +101,7 @@ Deno.serve(async (req: Request) => {
       if (sellerError) throw sellerError;
       if (seller.onboarding_status !== "approved" || seller.account_status !== "active") return json({ error: "Seller account must be approved and active" }, 409);
       const token = required(Deno.env.get("DELHIVERY_API_TOKEN"), "DELHIVERY_API_TOKEN (testing token)");
-      const baseUrl = (Deno.env.get("DELHIVERY_BASE_URL") || "https://staging-express.delhivery.com").replace(/\\/$/, "");
+      const baseUrl = (Deno.env.get("DELHIVERY_BASE_URL") || "https://staging-express.delhivery.com").replace(/\/$/, "");
       if (baseUrl !== "https://staging-express.delhivery.com") return json({ error: "Warehouse registration is locked to Delhivery staging until production is explicitly enabled." }, 409);
       const pinCheck = await checkPickupPin(address.postal_code, token, baseUrl);
       if (!pinCheck.serviceable) return json({ error: "Pickup PIN is not serviceable by Delhivery", pin_check: pinCheck }, 422);
