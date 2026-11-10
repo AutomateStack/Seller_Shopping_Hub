@@ -6,7 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, RefreshCw, Truck } from "lucide-react";
+import { ArrowLeft, Loader2, RefreshCw, Truck } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 const db = supabase as any;
 type Address = {
@@ -19,6 +20,7 @@ type Address = {
 
 export default function AdminPickupAddresses() {
   const { toast } = useToast();
+  const navigate = useNavigate();
   const [rows, setRows] = useState<Address[]>([]);
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
@@ -80,7 +82,15 @@ export default function AdminPickupAddresses() {
   };
 
   return <main className="container mx-auto max-w-6xl space-y-6 px-4 py-8">
-    <div className="flex flex-wrap items-center justify-between gap-3"><div><h1 className="text-2xl font-bold">Pickup address review</h1><p className="text-sm text-muted-foreground">Review seller pickup addresses and register approved locations with Delhivery.</p></div><Button variant="outline" onClick={() => void load()}><RefreshCw className="mr-2 h-4 w-4" />Refresh</Button></div>
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="flex items-start gap-3">
+        <Button variant="outline" size="icon" className="mt-1 shrink-0" onClick={() => navigate("/admin")} aria-label="Back to admin dashboard" title="Back to admin dashboard">
+          <ArrowLeft className="h-4 w-4" />
+        </Button>
+        <div><h1 className="text-2xl font-bold">Pickup address review</h1><p className="text-sm text-muted-foreground">Review seller pickup addresses and register approved locations with Delhivery.</p></div>
+      </div>
+      <Button variant="outline" onClick={() => void load()}><RefreshCw className="mr-2 h-4 w-4" />Refresh</Button>
+    </div>
     {loading ? <div className="flex justify-center p-12"><Loader2 className="h-8 w-8 animate-spin" /></div> : rows.length === 0 ? <Card><CardContent className="p-10 text-center text-muted-foreground">No seller pickup addresses submitted.</CardContent></Card> : rows.map(address => {
       const mapping = address.delhivery_warehouse_mappings?.[0];
       const canApprove = address.seller_profiles?.onboarding_status === "approved" && address.seller_profiles?.account_status === "active";
