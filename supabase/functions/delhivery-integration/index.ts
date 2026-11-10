@@ -11,7 +11,7 @@ const json = (body: unknown, status = 200) => new Response(JSON.stringify(body),
 const required = (value: unknown, label: string) => { if (typeof value !== "string" || !value.trim()) throw new Error(`Missing ${label}`); return value.trim(); };
 
 const checkPickupPin = async (pin: string, token: string, baseUrl: string) => {
-  if (!/^\\d{6}$/.test(pin)) throw new Error("PIN must contain exactly 6 digits");
+  if (!/^\d{6}$/.test(pin)) throw new Error("PIN must contain exactly 6 digits");
   const url = new URL("/c/api/pin-codes/json/", baseUrl);
   url.searchParams.set("filter_codes", pin);
   const response = await fetch(url, { method: "GET", headers: { Authorization: `Token ${token}`, Accept: "application/json" } });
@@ -61,12 +61,12 @@ Deno.serve(async (req: Request) => {
       if (!items.length) return json({ error: "Order has no shipment items" }, 422);
       const hsnCodes = [...new Set(items.map((item: any) => String(item.hsn_code || "").trim()))];
       const sellerGstins = [...new Set(items.map((item: any) => String(item.seller_gstin || "").trim().toUpperCase()))];
-      if (hsnCodes.some((value: string) => !/^\\d{4,8}$/.test(value)) || sellerGstins.length !== 1 || !/^[0-9A-Z]{15}$/.test(sellerGstins[0])) {
+      if (hsnCodes.some((value: string) => !/^\d{4,8}$/.test(value)) || sellerGstins.length !== 1 || !/^[0-9A-Z]{15}$/.test(sellerGstins[0])) {
         return json({ error: "Shipment blocked: valid HSN codes and one valid 15-character seller GSTIN are required on every order item. Update product details and place a new order." }, 422);
       }
       const token = required(Deno.env.get("DELHIVERY_API_TOKEN"), "DELHIVERY_API_TOKEN (staging token)");
       const clientName = required(Deno.env.get("DELHIVERY_CLIENT_NAME"), "DELHIVERY_CLIENT_NAME (exact Delhivery client name)");
-      const baseUrl = (Deno.env.get("DELHIVERY_BASE_URL") || "https://staging-express.delhivery.com").replace(/\\/$/, "");
+      const baseUrl = (Deno.env.get("DELHIVERY_BASE_URL") || "https://staging-express.delhivery.com").replace(/\/$/, "");
       if (baseUrl !== "https://staging-express.delhivery.com") return json({ error: "Shipment creation is locked to Delhivery staging. Production is not enabled." }, 409);
       const { data: pickupAddress, error: pickupError } = await admin.schema("seller").from("seller_addresses")
         .select("id,contact_phone,address_line1,address_line2,city,state,postal_code,country_code,review_status,address_type")
