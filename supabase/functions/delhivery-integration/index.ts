@@ -17,8 +17,6 @@ Deno.serve(async (req: Request) => {
     const supabaseUrl = required(Deno.env.get("SUPABASE_URL"), "SUPABASE_URL");
     const anonKey = required(Deno.env.get("SUPABASE_ANON_KEY"), "SUPABASE_ANON_KEY");
     const serviceKey = required(Deno.env.get("SUPABASE_SERVICE_ROLE_KEY"), "SUPABASE_SERVICE_ROLE_KEY");
-    const token = required(Deno.env.get("DELHIVERY_API_TOKEN"), "DELHIVERY_API_TOKEN");
-    const baseUrl = (Deno.env.get("DELHIVERY_BASE_URL") || "https://staging-express.delhivery.com").replace(/\/$/, "");
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) return json({ error: "Authentication required" }, 401);
     const authClient = createClient(supabaseUrl, anonKey, { global: { headers: { Authorization: authHeader } }, auth: { persistSession: false, autoRefreshToken: false } });
@@ -30,6 +28,29 @@ Deno.serve(async (req: Request) => {
     if (!adminRow || !["operations", "super_admin"].includes(adminRow.admin_role)) return json({ error: "Only marketplace operations admins can manage Delhivery pickup locations" }, 403);
     const body = await req.json();
     const action = required(body.action, "action");
+    if (action === "preview-warehouse") {
+      const addressId = required(body.address_id, "address_id");
+      const { data: address, error: addressError } = await admin.schema("seller").from("seller_addresses").select("id,seller_id,address_type,contact_name,contact_phone,address_line1,address_line2,city,state,postal_code,country_code,review_status").eq("id", addressId).maybeSingle();
+      if (addressError) throw addressError;
+      if (!address) return json({ error: "Pickup address not found" }, 404);
+      if (address.address_type !== "pickup" || address.review_status !== "approved") return json({ error: "Only approved pickup addresses can be previewed" }, 409);
+      const { data: seller, error: sellerError } = await admin.schema("seller").from("seller_profiles").select("id,store_name,business_name,contact_email,contact_phone,onboarding_status,account_status").eq("id", address.seller_id).single();
+      if (sellerError) throw sellerError;
+      if (seller.onboarding_status !== "approved" || seller.account_status !== "active") return json({ error: "Seller account must be approved and active" }, 409);
+      const { data: returnAddress, error: returnError } = await admin.schema("seller").from("seller_addresses").select("contact_phone,address_line1,address_line2,city,state,postal_code,country_code").eq("seller_id", seller.id).eq("address_type", "return").order("created_at", { ascending: false }).limit(1).maybeSingle();
+      if (returnError) throw returnError;
+      const fullAddress = [address.address_line1, address.address_line2].filter(Boolean).join(", ");
+      const returnFullAddress = returnAddress ? [returnAddress.address_line1, returnAddress.address_line2].filter(Boolean).join(", ") : fullAddress;
+      const phone = (address.contact_phone || seller.contact_phone || "").replace(/[^0-9]/g, "");
+      const email = seller.contact_email;
+      if (!phone || !email) return json({ error: "Seller contact phone and email are required for Delhivery warehouse registration" }, 422);
+      const warehouseName = `SH-${seller.id.replaceAll("-", "").slice(0, 8).toUpperCase()}-${address.id.replaceAll("-", "").slice(0, 8).toUpperCase()}`;
+      const payload = { phone, city: address.city, name: warehouseName, pin: address.postal_code, address: fullAddress, country: address.country_code === "IN" ? "India" : address.country_code, email, registered_name: seller.business_name || seller.store_name, return_address: returnFullAddress, return_pin: returnAddress?.postal_code || address.postal_code, return_city: returnAddress?.city || address.city, return_state: returnAddress?.state || address.state, return_country: (returnAddress?.country_code || address.country_code) === "IN" ? "India" : (returnAddress?.country_code || address.country_code) };
+      const requiredFields = ["phone", "city", "name", "pin", "address", "email", "registered_name", "return_address", "return_pin", "return_city", "return_state", "return_country"];
+      const missingFields = requiredFields.filter((key) => !String(payload[key as keyof typeof payload] ?? "").trim());
+      if (missingFields.length) return json({ error: "Warehouse payload is incomplete", missing_fields: missingFields }, 422);
+      return json({ ok: true, dry_run: true, message: "Local validation passed. No Delhivery API request was made.", warehouse_name: warehouseName, payload: { ...payload, phone: `${phone.slice(0, 2)}******${phone.slice(-2)}`, email: email.replace(/^(.).+(@.*)$/, "$1***$2") } });
+    }
     if (action === "register-warehouse") {
       const addressId = required(body.address_id, "address_id");
       const { data: address, error: addressError } = await admin.schema("seller").from("seller_addresses").select("id,seller_id,address_type,contact_name,contact_phone,address_line1,address_line2,city,state,postal_code,country_code,review_status").eq("id", addressId).maybeSingle();
@@ -53,6 +74,8 @@ Deno.serve(async (req: Request) => {
       const payload = { phone, city: address.city, name: warehouseName, pin: address.postal_code, address: fullAddress, country: address.country_code === "IN" ? "India" : address.country_code, email, registered_name: seller.business_name || seller.store_name, return_address: returnFullAddress, return_pin: returnAddress?.postal_code || address.postal_code, return_city: returnAddress?.city || address.city, return_state: returnAddress?.state || address.state, return_country: (returnAddress?.country_code || address.country_code) === "IN" ? "India" : (returnAddress?.country_code || address.country_code) };
       const { data: mapping, error: upsertError } = await admin.schema("seller").from("delhivery_warehouse_mappings").upsert({ seller_id: seller.id, address_id: address.id, warehouse_name: warehouseName, registration_status: "pending", last_error: null }, { onConflict: "address_id" }).select("id").single();
       if (upsertError) throw upsertError;
+      const token = required(Deno.env.get("DELHIVERY_API_TOKEN"), "DELHIVERY_API_TOKEN");
+      const baseUrl = (Deno.env.get("DELHIVERY_BASE_URL") || "https://staging-express.delhivery.com").replace(/\/$/, "");
       const response = await fetch(`${baseUrl}/api/backend/clientwarehouse/create/`, { method: "POST", headers: { Authorization: `Token ${token}`, "Content-Type": "application/json", Accept: "application/json" }, body: JSON.stringify(payload) });
       const responseText = await response.text();
       let responseBody: unknown;
