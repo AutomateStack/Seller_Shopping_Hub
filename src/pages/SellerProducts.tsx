@@ -15,8 +15,8 @@ import { SellerPortalLayout } from "@/components/seller/SellerPortalLayout";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 
 const db = supabase as any;
-type Product = { id:string; title:string; description:string; category:string; brand:string; sku:string|null; price:number; mrp:number|null; stock_quantity:number; image_urls:string[]; status:string; created_at:string; latest_revision_status?:string|null; latest_revision_summary?:string|null; latest_revision_comment?:string|null; latest_revision_at?:string|null };
-const emptyForm = { title:"", description:"", category:"", brand:"", sku:"", price:"", mrp:"", stock_quantity:"0" };
+type Product = { id:string; title:string; description:string; category:string; brand:string; sku:string|null; hsn_code:string|null; shipping_weight_grams:number|null; package_length_cm:number|null; package_breadth_cm:number|null; package_height_cm:number|null; price:number; mrp:number|null; stock_quantity:number; image_urls:string[]; status:string; created_at:string; latest_revision_status?:string|null; latest_revision_summary?:string|null; latest_revision_comment?:string|null; latest_revision_at?:string|null };
+const emptyForm = { title:"", description:"", category:"", brand:"", sku:"", hsn_code:"", shipping_weight_grams:"", package_length_cm:"", package_breadth_cm:"", package_height_cm:"", price:"", mrp:"", stock_quantity:"0" };
 const productCategories = ["Fashion & Clothing","Jewellery & Accessories","Beauty & Personal Care","Home & Kitchen","Kitchen & Dining","Grocery & Food","Electronics","Mobile Accessories","Toys & Games","Baby & Kids","Bags & Luggage","Footwear","Sports & Fitness","Automotive","Books & Stationery","Pet Supplies","Handmade & Crafts","Other"];
 const categoryAttributeFields: Record<string, { label: string; placeholder: string }[]> = {
   "Fashion & Clothing": [{label:"Size",placeholder:"e.g. M, XL, 32"}, {label:"Colour",placeholder:"e.g. Navy blue"}, {label:"Material / fabric",placeholder:"e.g. Cotton"}, {label:"Fit / style",placeholder:"e.g. Regular fit"}, {label:"Care instructions",placeholder:"e.g. Machine wash cold"}],
@@ -93,7 +93,7 @@ export default function SellerProducts() {
     if (!seller) { navigate("/seller/onboarding",{replace:true}); return; }
     if (seller.onboarding_status !== "approved" || seller.account_status !== "active") { navigate("/seller/onboarding",{replace:true}); return; }
     setSellerId(seller.id);
-    const {data,error:productError} = await db.schema("catalog").from("products").select("id,seller_id,title,description,category,brand,sku,price,mrp,stock_quantity,image_urls,status,created_at,updated_at").eq("seller_id",seller.id).order("created_at",{ascending:false});
+    const {data,error:productError} = await db.schema("catalog").from("products").select("id,seller_id,title,description,category,brand,sku,hsn_code,shipping_weight_grams,package_length_cm,package_breadth_cm,package_height_cm,price,mrp,stock_quantity,image_urls,status,created_at,updated_at").eq("seller_id",seller.id).order("created_at",{ascending:false});
     if (productError) setError(productError.message); else {
       const rows=(data ?? []) as Product[];
       let revisionRows:any[]=[];
@@ -161,7 +161,13 @@ export default function SellerProducts() {
     }
     setSaving(true);
     const finalDescription = composeDescription(form.description, form.category, categoryAttributes);
-    const payload = {title:form.title.trim(),description:finalDescription,category:form.category.trim(),brand:form.brand.trim(),sku:form.sku.trim()||null,price,mrp,image_urls:images};
+    const weight = form.shipping_weight_grams ? Number(form.shipping_weight_grams) : null;
+    const length = form.package_length_cm ? Number(form.package_length_cm) : null;
+    const breadth = form.package_breadth_cm ? Number(form.package_breadth_cm) : null;
+    const height = form.package_height_cm ? Number(form.package_height_cm) : null;
+    if (form.hsn_code.trim() && !/^\\d{4,8}$/.test(form.hsn_code.trim())) { toast({title:"Invalid HSN code",description:"Enter a 4–8 digit HSN code.",variant:"destructive"}); return; }
+    if ([weight,length,breadth,height].some(v=>v!==null&&(!Number.isFinite(v)||v<=0))) { toast({title:"Invalid package details",description:"Weight and all package dimensions must be positive numbers.",variant:"destructive"}); return; }
+    const payload = {title:form.title.trim(),description:finalDescription,category:form.category.trim(),brand:form.brand.trim(),sku:form.sku.trim()||null,hsn_code:form.hsn_code.trim()||null,shipping_weight_grams:weight,package_length_cm:length,package_breadth_cm:breadth,package_height_cm:height,price,mrp,image_urls:images};
     const editingProduct = editingId ? products.find(p=>p.id===editingId) : null;
     const approvedEdit = !!editingProduct && ["approved","paused"].includes(editingProduct.status);
     const detailChanged = !!editingProduct && (
@@ -169,7 +175,7 @@ export default function SellerProducts() {
       (editingProduct.description ?? "") !== payload.description ||
       editingProduct.category !== payload.category ||
       (editingProduct.brand ?? "") !== payload.brand ||
-      (editingProduct.sku ?? null) !== payload.sku ||
+      (editingProduct.sku ?? null) !== payload.sku ||\n      (editingProduct.hsn_code ?? null) !== payload.hsn_code ||\n      editingProduct.shipping_weight_grams !== payload.shipping_weight_grams ||\n      editingProduct.package_length_cm !== payload.package_length_cm ||\n      editingProduct.package_breadth_cm !== payload.package_breadth_cm ||\n      editingProduct.package_height_cm !== payload.package_height_cm ||
       Number(editingProduct.price) !== price ||
       (editingProduct.mrp == null ? null : Number(editingProduct.mrp)) !== mrp ||
       JSON.stringify(editingProduct.image_urls||[]) !== JSON.stringify(images)
@@ -227,7 +233,7 @@ export default function SellerProducts() {
     setFormOpen(true);
     setEditingId(product.id);
     const parsedDescription = parseDescription(product.description ?? "");
-    setForm({title:product.title,description:parsedDescription.description,category:product.category??"",brand:product.brand??"",sku:product.sku??"",price:String(product.price),mrp:product.mrp==null?"":String(product.mrp),stock_quantity:String(product.stock_quantity)});
+    setForm({title:product.title,description:parsedDescription.description,category:product.category??"",brand:product.brand??"",sku:product.sku??"",hsn_code:product.hsn_code??"",shipping_weight_grams:product.shipping_weight_grams==null?"":String(product.shipping_weight_grams),package_length_cm:product.package_length_cm==null?"":String(product.package_length_cm),package_breadth_cm:product.package_breadth_cm==null?"":String(product.package_breadth_cm),package_height_cm:product.package_height_cm==null?"":String(product.package_height_cm),price:String(product.price),mrp:product.mrp==null?"":String(product.mrp),stock_quantity:String(product.stock_quantity)});
     setCategoryAttributes(parsedDescription.attributes);
     setImages(product.image_urls??[]);
     window.scrollTo({top:0,behavior:"smooth"});
@@ -360,6 +366,7 @@ export default function SellerProducts() {
             <div className="space-y-2"><Label htmlFor="product-sku">Seller SKU (optional)</Label><Input id="product-sku" value={form.sku} onChange={e=>setForm({...form,sku:e.target.value})} placeholder="Your internal SKU"/></div>
             <div className="space-y-2"><Label htmlFor="product-price">Selling price (₹) *</Label><Input id="product-price" type="number" min="0.01" step="0.01" value={form.price} onChange={e=>setForm({...form,price:e.target.value})} placeholder="199.00"/></div>
             <div className="space-y-2"><Label htmlFor="product-mrp">MRP (₹)</Label><Input id="product-mrp" type="number" min="0.01" step="0.01" value={form.mrp} onChange={e=>setForm({...form,mrp:e.target.value})} placeholder="249.00"/></div>
+            <div className="md:col-span-2 rounded-lg border bg-muted/20 p-4 space-y-3"><div><h3 className="font-semibold">Shipping & tax details</h3><p className="text-xs text-muted-foreground">Required before ShopHub can create a Delhivery shipment. Enter values from the actual packed product, not estimates.</p></div><div className="grid gap-3 sm:grid-cols-2"><div className="space-y-1"><Label htmlFor="product-hsn">HSN code</Label><Input id="product-hsn" inputMode="numeric" maxLength={8} value={form.hsn_code} onChange={e=>setForm({...form,hsn_code:e.target.value.replace(/\\D/g,"").slice(0,8)})} placeholder="e.g. 610910"/></div><div className="space-y-1"><Label htmlFor="product-weight">Packed weight (grams)</Label><Input id="product-weight" type="number" min="1" step="1" value={form.shipping_weight_grams} onChange={e=>setForm({...form,shipping_weight_grams:e.target.value})} placeholder="e.g. 750"/></div><div className="space-y-1"><Label htmlFor="product-length">Package length (cm)</Label><Input id="product-length" type="number" min="0.1" step="0.1" value={form.package_length_cm} onChange={e=>setForm({...form,package_length_cm:e.target.value})} placeholder="e.g. 20"/></div><div className="space-y-1"><Label htmlFor="product-breadth">Package breadth (cm)</Label><Input id="product-breadth" type="number" min="0.1" step="0.1" value={form.package_breadth_cm} onChange={e=>setForm({...form,package_breadth_cm:e.target.value})} placeholder="e.g. 15"/></div><div className="space-y-1"><Label htmlFor="product-height">Package height (cm)</Label><Input id="product-height" type="number" min="0.1" step="0.1" value={form.package_height_cm} onChange={e=>setForm({...form,package_height_cm:e.target.value})} placeholder="e.g. 8"/></div></div></div>
             {!(editingId && products.some(p=>p.id===editingId && ["approved","paused"].includes(p.status)))&&<div className="space-y-2"><Label htmlFor="product-stock">Available stock *</Label><Input id="product-stock" type="number" min="0" step="1" value={form.stock_quantity} onChange={e=>setForm({...form,stock_quantity:e.target.value})}/></div>}
             <div className="space-y-2 md:col-span-2"><Label htmlFor="product-description">Description</Label><Textarea id="product-description" rows={5} maxLength={5000} value={form.description} onChange={e=>setForm({...form,description:e.target.value})} placeholder={"Describe what the product is and who it is for.\n\nKey features:\n• Feature or benefit\n• Material, size or compatibility (if known)\n\nPackage contents: …\nCare instructions: …"} /><p className="text-xs text-muted-foreground">{form.description.trim().length}/5000 characters. Helpful details include benefits, material, dimensions, compatibility, package contents and care instructions when relevant. Do not guess missing specifications.</p></div>
           </div>
